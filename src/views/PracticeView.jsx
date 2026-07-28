@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { diagnosticMarkdown } from "../content";
-import { sections } from "../data";
+import { diagnosticMarkdown } from "../data/contentCatalog";
+import { sections } from "../data/curriculum";
 import { parseQuestions, scoreQuestions } from "../lib/parse";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";
@@ -194,4 +194,3 @@ export function PracticeView() {
     </div>
   );
 }
-

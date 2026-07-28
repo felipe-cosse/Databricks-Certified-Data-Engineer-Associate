@@ -292,5 +292,4 @@ Complete lab 9:
 - [Troubleshoot compute](https://docs.databricks.com/aws/en/compute/troubleshooting/)
 - [Liquid clustering](https://docs.databricks.com/aws/en/delta/clustering)
 - [Predictive optimization](https://docs.databricks.com/aws/en/optimizations/predictive-optimization)
-- [Section 6 Diagnostic](diagnostics/section-06-diagnostic.md)
-
+- [Section 6 Diagnostic](../../assessments/diagnostics/section-06-diagnostic.md)

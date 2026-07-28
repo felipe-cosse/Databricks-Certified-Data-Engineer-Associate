@@ -194,5 +194,4 @@ Record the artifact and your compute decisions in the journal.
 - [Compute overview](https://docs.databricks.com/aws/en/compute)
 - [Serverless compute limitations](https://docs.databricks.com/aws/en/compute/serverless/limitations)
 - [SQL warehouse types](https://docs.databricks.com/aws/en/compute/sql-warehouse/warehouse-types)
-- [Section 1 Diagnostic](diagnostics/section-01-diagnostic.md)
-
+- [Section 1 Diagnostic](../../assessments/diagnostics/section-01-diagnostic.md)

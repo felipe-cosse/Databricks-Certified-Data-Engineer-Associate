@@ -199,5 +199,4 @@ Complete lab 7:
 - [Monitor Lakeflow Jobs](https://docs.databricks.com/aws/en/jobs/monitor)
 - [Run pipelines in a workflow](https://docs.databricks.com/aws/en/ldp/workflows)
 - [Dashboard task](https://docs.databricks.com/aws/en/jobs/tasks/dashboard)
-- [Section 4 Diagnostic](diagnostics/section-04-diagnostic.md)
-
+- [Section 4 Diagnostic](../../assessments/diagnostics/section-04-diagnostic.md)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { lessons, supportingResources } from "../content";
-import { objectiveCount, sections } from "../data";
+import { lessons, supportingResources } from "../data/contentCatalog";
+import { objectiveCount, sections } from "../data/curriculum";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { buildObjectivePages } from "../lib/coursePages";
 import { Icon } from "../components/Icon";
@@ -102,12 +102,12 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
       return;
     }
     const resources = {
-      "00-course-guide.md": "guide",
-      "00-objective-coverage.md": "coverage",
-      "00-ai-prep-system.md": "ai-prep",
-      "00-renamed-products.md": "renames",
-      "08-hands-on-labs.md": "labs",
-      "09-final-review.md": "review",
+      "course-guide.md": "guide",
+      "objective-coverage.md": "coverage",
+      "ai-prep-system.md": "ai-prep",
+      "renamed-products.md": "renames",
+      "hands-on-labs.md": "labs",
+      "final-review.md": "review",
     };
     const resource = Object.entries(resources).find(([filename]) => href.endsWith(filename));
     if (resource) {

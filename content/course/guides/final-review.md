@@ -178,7 +178,6 @@ Review:
 
 - [Official exam guide](https://www.databricks.com/sites/default/files/2026-05/databricks-certified-data-engineer-associate-exam-guide-may-2026-000.pdf)
 - [Certification page](https://www.databricks.com/learn/certification/data-engineer-associate)
-- [Current renamed product table](00-renamed-products.md)
-- [Objective coverage map](00-objective-coverage.md)
+- [Current renamed product table](renamed-products.md)
+- [Objective coverage map](objective-coverage.md)
 - Your repair log and hands-on evidence
-

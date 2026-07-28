@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { objectiveCount, sections } from "../src/data.js";
+import { objectiveCount, sections } from "../src/data/curriculum.js";
 import { formatTime, parseQuestions, scoreQuestions } from "../src/lib/parse.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,7 +21,7 @@ test("the course exposes all seven sections and 33 official objectives", () => {
 
 test("each section diagnostic has ten valid questions", () => {
   for (let section = 1; section <= 7; section += 1) {
-    const filename = `course/diagnostics/section-${String(section).padStart(2, "0")}-diagnostic.md`;
+    const filename = `content/assessments/diagnostics/section-${String(section).padStart(2, "0")}-diagnostic.md`;
     const questions = parseQuestions(read(filename), section);
     assert.equal(questions.length, 10, filename);
     for (const question of questions) {
@@ -38,7 +38,7 @@ test("each mock has 45 unique, complete questions with the intended distribution
   const expected = { 1: 3, 2: 9, 3: 10, 4: 7, 5: 5, 6: 4, 7: 7 };
   const allPrompts = new Set();
   for (let exam = 1; exam <= 3; exam += 1) {
-    const questions = parseQuestions(read(`exams/practice-exam-${exam}.md`));
+    const questions = parseQuestions(read(`content/assessments/practice-exams/practice-exam-${exam}.md`));
     assert.equal(questions.length, 45);
     const distribution = {};
     const prompts = new Set();

@@ -12,9 +12,9 @@
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-0c1b2e)
 
-[Explore the course](course/00-course-guide.md) ·
-[Review objective coverage](course/00-objective-coverage.md) ·
-[Open the lab manual](course/08-hands-on-labs.md) ·
+[Explore the course](content/course/guides/course-guide.md) ·
+[Review objective coverage](content/course/guides/objective-coverage.md) ·
+[Open the lab manual](content/course/labs/hands-on-labs.md) ·
 [Contribute](CONTRIBUTING.md)
 
 </div>
@@ -94,7 +94,7 @@ The planner implements the official AI preparation workflow, calculates the curr
 | Governance and Security | 15% | 4 | 7 |
 | **Total** | **100%** | **33** | **45** |
 
-See the [complete objective-to-lesson map](course/00-objective-coverage.md).
+See the [complete objective-to-lesson map](content/course/guides/objective-coverage.md).
 
 ## Six-step preparation workflow
 
@@ -107,7 +107,7 @@ The course implements every step in the June 2026 AI Prep Guide:
 5. **Complete the hands-on minimum** — produce evidence in a Databricks workspace.
 6. **Use 25/50/25 pacing** — diagnose first, build in the middle, finish with timed practice and repair.
 
-Read the complete [AI Preparation System](course/00-ai-prep-system.md).
+Read the complete [AI Preparation System](content/course/guides/ai-prep-system.md).
 
 ## Getting started
 
@@ -186,7 +186,7 @@ Run `make help` to see the full command list.
 
 ## Recommended study sequence
 
-1. Read the [Course Guide](course/00-course-guide.md).
+1. Read the [Course Guide](content/course/guides/course-guide.md).
 2. Take all seven diagnostics closed-note.
 3. Rank missed objectives by diagnostic score and exam weight.
 4. Study the weakest high-weight objectives first.
@@ -199,26 +199,26 @@ Run `make help` to see the full command list.
 
 | Section | Lesson |
 |---|---|
-| Start here | [Course Guide](course/00-course-guide.md) |
-| Coverage | [Official Objective Coverage Map](course/00-objective-coverage.md) |
-| Study method | [Six-Step AI Preparation System](course/00-ai-prep-system.md) |
-| Terminology | [Renamed Products and Legacy Traps](course/00-renamed-products.md) |
-| Section 1 | [Databricks Intelligence Platform](course/01-databricks-intelligence-platform.md) |
-| Section 2 | [Data Ingestion and Loading](course/02-data-ingestion-and-loading.md) |
-| Section 3 | [Data Transformation and Modeling](course/03-data-transformation-and-modeling.md) |
-| Section 4 | [Working with Lakeflow Jobs](course/04-working-with-lakeflow-jobs.md) |
-| Section 5 | [Implementing CI/CD](course/05-implementing-cicd.md) |
-| Section 6 | [Troubleshooting, Monitoring, and Optimization](course/06-troubleshooting-monitoring-optimization.md) |
-| Section 7 | [Governance and Security](course/07-governance-and-security.md) |
-| Practice | [Hands-on Lab Manual](course/08-hands-on-labs.md) |
-| Final preparation | [Final Review and Exam Strategy](course/09-final-review.md) |
+| Start here | [Course Guide](content/course/guides/course-guide.md) |
+| Coverage | [Official Objective Coverage Map](content/course/guides/objective-coverage.md) |
+| Study method | [Six-Step AI Preparation System](content/course/guides/ai-prep-system.md) |
+| Terminology | [Renamed Products and Legacy Traps](content/course/guides/renamed-products.md) |
+| Section 1 | [Databricks Intelligence Platform](content/course/sections/01-databricks-intelligence-platform.md) |
+| Section 2 | [Data Ingestion and Loading](content/course/sections/02-data-ingestion-and-loading.md) |
+| Section 3 | [Data Transformation and Modeling](content/course/sections/03-data-transformation-and-modeling.md) |
+| Section 4 | [Working with Lakeflow Jobs](content/course/sections/04-working-with-lakeflow-jobs.md) |
+| Section 5 | [Implementing CI/CD](content/course/sections/05-implementing-cicd.md) |
+| Section 6 | [Troubleshooting, Monitoring, and Optimization](content/course/sections/06-troubleshooting-monitoring-optimization.md) |
+| Section 7 | [Governance and Security](content/course/sections/07-governance-and-security.md) |
+| Practice | [Hands-on Lab Manual](content/course/labs/hands-on-labs.md) |
+| Final preparation | [Final Review and Exam Strategy](content/course/guides/final-review.md) |
 
 ## Practice exams
 
-- [Practice Exam 1 — Foundation and Selection](exams/practice-exam-1.md)
-- [Practice Exam 2 — Operations and Reliability](exams/practice-exam-2.md)
-- [Practice Exam 3 — Integration and Transfer](exams/practice-exam-3.md)
-- [Scorecard and Repair Log](exams/scorecard.md)
+- [Practice Exam 1 — Foundation and Selection](content/assessments/practice-exams/practice-exam-1.md)
+- [Practice Exam 2 — Operations and Reliability](content/assessments/practice-exams/practice-exam-2.md)
+- [Practice Exam 3 — Integration and Transfer](content/assessments/practice-exams/practice-exam-3.md)
+- [Scorecard and Repair Log](content/assessments/practice-exams/scorecard.md)
 
 The Markdown exam files contain answer metadata and rationales for maintainers. For realistic practice, use the website, where rationales remain hidden until submission.
 
@@ -226,16 +226,24 @@ The Markdown exam files contain answer metadata and rationales for maintainers. 
 
 ```text
 .
-├── course/                  # Lessons, diagnostics, labs, and study system
-├── exams/                   # Three 45-question mocks and scorecard
-├── docs/screenshots/        # Public README screenshots
+├── content/
+│   ├── course/
+│   │   ├── guides/         # Study system, coverage, terminology, and review
+│   │   ├── labs/           # Hands-on project manual
+│   │   └── sections/       # Seven exam-blueprint lessons
+│   └── assessments/
+│       ├── diagnostics/    # Seven section diagnostics
+│       └── practice-exams/ # Three 45-question mocks and scorecard
+├── docs/
+│   ├── design/             # Concepts, design system, and QA references
+│   └── screenshots/        # Public README screenshots
 ├── src/
 │   ├── components/          # Shared UI components
+│   ├── data/                # Curriculum metadata and Markdown catalog
 │   ├── hooks/               # Persistent browser-state hook
 │   ├── lib/                 # Question parsing and scoring
 │   └── views/               # Course, practice, exams, and plan surfaces
 ├── tests/                   # Content integrity and scoring tests
-├── design/                  # Concepts, design tokens, and QA references
 ├── docker/                  # Production Nginx configuration
 ├── Dockerfile               # Multi-stage application image
 ├── docker-compose.yml       # Hardened local production service

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { sections } from "../src/data.js";
+import { sections } from "../src/data/curriculum.js";
 import { buildObjectivePages } from "../src/lib/coursePages.js";
 
 function readSection(section) {
@@ -16,7 +16,7 @@ function readSection(section) {
     "governance-and-security",
   ];
   return readFileSync(
-    new URL(`../course/0${section.id}-${filenames[section.id - 1]}.md`, import.meta.url),
+    new URL(`../content/course/sections/0${section.id}-${filenames[section.id - 1]}.md`, import.meta.url),
     "utf8",
   );
 }

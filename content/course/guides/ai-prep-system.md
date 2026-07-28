@@ -51,7 +51,7 @@ Then provide:
 
 ## Step 3 — Maintain the renamed-product trap table
 
-Use [Renamed Products and Legacy Traps](00-renamed-products.md) at the start of each session. Add any old name your AI or course material produces.
+Use [Renamed Products and Legacy Traps](renamed-products.md) at the start of each session. Add any old name your AI or course material produces.
 
 The most important current mappings are:
 
@@ -122,7 +122,7 @@ Retake only the related questions after 24–72 hours. Immediate rereading tests
 
 ## Step 5 — Complete the hands-on minimum
 
-Reading is insufficient. Complete the ten tasks in the [Hands-on Lab Manual](08-hands-on-labs.md):
+Reading is insufficient. Complete the ten tasks in the [Hands-on Lab Manual](../labs/hands-on-labs.md):
 
 1. Create bronze, silver, and gold Unity Catalog objects.
 2. Load cloud files with `COPY INTO`.
@@ -171,4 +171,3 @@ If time is short:
 3. Run and verify every important code sample.
 4. Investigate disagreement between tools in official docs.
 5. Complete the hands-on checklist.
-

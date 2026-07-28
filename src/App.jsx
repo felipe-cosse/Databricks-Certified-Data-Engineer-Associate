@@ -5,7 +5,7 @@ import { ExamsView } from "./views/ExamsView";
 import { StudyPlanView } from "./views/StudyPlanView";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { Icon } from "./components/Icon";
-import { objectiveCount } from "./data";
+import { objectiveCount } from "./data/curriculum";
 
 const routes = [
   ["course", "Course", "book"],
@@ -115,4 +115,3 @@ export default function App() {
     </div>
   );
 }
-

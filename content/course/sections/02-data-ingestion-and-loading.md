@@ -315,5 +315,4 @@ Complete labs 2 and 3:
 - [Auto Loader schema inference and evolution](https://docs.databricks.com/aws/en/ingestion/cloud-object-storage/auto-loader/schema)
 - [JDBC connections](https://docs.databricks.com/aws/en/connect/jdbc-connection)
 - [Ingest semi-structured data as `VARIANT`](https://docs.databricks.com/aws/en/ingestion/variant)
-- [Section 2 Diagnostic](diagnostics/section-02-diagnostic.md)
-
+- [Section 2 Diagnostic](../../assessments/diagnostics/section-02-diagnostic.md)

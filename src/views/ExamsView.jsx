@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { examMarkdown } from "../content";
-import { sections } from "../data";
+import { examMarkdown } from "../data/contentCatalog";
+import { sections } from "../data/curriculum";
 import { formatTime, parseQuestions, scoreQuestions } from "../lib/parse";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";

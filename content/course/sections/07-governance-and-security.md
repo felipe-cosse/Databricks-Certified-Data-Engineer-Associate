@@ -310,5 +310,4 @@ Complete lab 10:
 - [Row filters and column masks](https://docs.databricks.com/aws/en/data-governance/unity-catalog/filters-and-masks)
 - [Attribute-based access control](https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac)
 - [`DENY` scope](https://docs.databricks.com/gcp/en/sql/language-manual/security-deny)
-- [Section 7 Diagnostic](diagnostics/section-07-diagnostic.md)
-
+- [Section 7 Diagnostic](../../assessments/diagnostics/section-07-diagnostic.md)

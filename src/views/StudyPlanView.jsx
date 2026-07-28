@@ -1,4 +1,4 @@
-import { aiPrepSteps, labs, renamedProducts, sections } from "../data";
+import { aiPrepSteps, labs, renamedProducts, sections } from "../data/curriculum";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";
 

@@ -235,5 +235,4 @@ Complete lab 8:
 - [Bundle configuration reference](https://docs.databricks.com/aws/en/dev-tools/bundles/reference)
 - [`bundle` command group](https://docs.databricks.com/aws/en/dev-tools/cli/bundle-commands)
 - [CI/CD workflows](https://docs.databricks.com/aws/en/dev-tools/ci-cd/flows)
-- [Section 5 Diagnostic](diagnostics/section-05-diagnostic.md)
-
+- [Section 5 Diagnostic](../../assessments/diagnostics/section-05-diagnostic.md)

@@ -25,7 +25,7 @@ Priority suggestion: `exam weight × (4 − confidence)`.
 
 ## Renamed products
 
-Paste the current table from [Renamed Products and Legacy Traps](00-renamed-products.md), then append any stale term your tools produce.
+Paste the current table from [Renamed Products and Legacy Traps](renamed-products.md), then append any stale term your tools produce.
 
 ## Objective tracker
 
@@ -106,4 +106,3 @@ Paste the current table from [Renamed Products and Legacy Traps](00-renamed-prod
 | 1 | | /45 | | | |
 | 2 | | /45 | | | |
 | 3 | | /45 | | | |
-

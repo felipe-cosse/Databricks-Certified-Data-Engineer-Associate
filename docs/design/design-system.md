@@ -1,6 +1,6 @@
 # DEA Study Lab Design System
 
-This specification was extracted from the generated concepts in `design/concepts/`.
+This specification was extracted from the generated concepts in `docs/design/concepts/`.
 
 ## Product surfaces
 
@@ -91,4 +91,3 @@ The concept showed `12 of 42 objectives`. The official May 2026 guide contains 3
 - Progress-width interpolation
 - No continuous decorative motion
 - Disable nonessential transition motion under `prefers-reduced-motion`
-

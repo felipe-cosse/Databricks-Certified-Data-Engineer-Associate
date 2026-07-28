@@ -363,5 +363,4 @@ Complete labs 4–6:
 - [Materialized views](https://docs.databricks.com/aws/en/ldp/materialized-views)
 - [Delta constraints](https://docs.databricks.com/aws/en/tables/constraints)
 - [Pipeline expectations](https://docs.databricks.com/aws/en/ldp/expectations)
-- [Section 3 Diagnostic](diagnostics/section-03-diagnostic.md)
-
+- [Section 3 Diagnostic](../../assessments/diagnostics/section-03-diagnostic.md)
