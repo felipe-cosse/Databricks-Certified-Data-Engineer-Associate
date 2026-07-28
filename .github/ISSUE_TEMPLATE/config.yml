@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Official Databricks certification information
+    url: https://www.databricks.com/learn/certification/data-engineer-associate
+    about: Use the official certification page for registration, policy, and exam-delivery questions.
+

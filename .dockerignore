@@ -1,0 +1,15 @@
+.git
+.github
+.agents
+.codex
+.DS_Store
+node_modules
+dist
+design
+docs
+coverage
+*.log
+.env
+.env.*
+!.env.example
+

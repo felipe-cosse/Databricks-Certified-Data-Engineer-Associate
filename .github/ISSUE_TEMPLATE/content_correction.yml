@@ -1,0 +1,58 @@
+name: Content correction
+description: Report outdated, unclear, or incorrect course material.
+title: "[Content]: "
+labels:
+  - content
+body:
+  - type: input
+    id: location
+    attributes:
+      label: File and section
+      placeholder: course/02-data-ingestion-and-loading.md — Auto Loader schema evolution
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current statement
+      description: Quote only the minimum text necessary to identify the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: correction
+    attributes:
+      label: Proposed correction
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Official Databricks source
+      description: Provide a current official documentation or certification-guide URL.
+      placeholder: https://docs.databricks.com/...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Does this affect a question or answer?
+      options:
+        - "No"
+        - "Yes — a diagnostic"
+        - "Yes — a mock exam"
+        - "Unsure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: integrity
+    attributes:
+      label: Content integrity
+      options:
+        - label: This report does not include leaked or recalled live exam content.
+          required: true
+
