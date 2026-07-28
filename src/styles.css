@@ -1983,7 +1983,7 @@ td {
     z-index: 20;
     bottom: var(--mobile-nav-height);
     display: grid;
-    grid-template-columns: 42px 1fr 42px;
+    grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
     height: 64px;
     gap: 8px;
     padding: 0 10px;
@@ -1999,10 +1999,6 @@ td {
 
   .objective-footer strong {
     max-width: 100%;
-  }
-
-  .objective-footer > .footer-arrow:last-child {
-    display: none;
   }
 
   .page-contained {

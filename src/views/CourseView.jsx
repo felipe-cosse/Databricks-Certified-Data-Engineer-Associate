@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { lessons, supportingResources } from "../content";
 import { objectiveCount, sections } from "../data";
 import { usePersistentState } from "../hooks/usePersistentState";
+import { buildObjectivePages } from "../lib/coursePages";
 import { Icon } from "../components/Icon";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
+
+const allObjectives = sections.flatMap((section) => section.objectives);
+const lessonPages = sections.map((section, index) => (
+  buildObjectivePages(lessons[index], section)
+));
 
 function SectionRow({ section, selected, objectiveProgress, onClick }) {
   const complete = section.objectives.filter(([id]) => objectiveProgress[id]).length;
@@ -35,18 +41,30 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
     ? sections[Number(selection.split("-")[1]) - 1]
     : null;
   const support = supportingResources.find((item) => item.id === selection);
-  const markdown = selectedSection ? lessons[selectedSection.id - 1] : support?.markdown;
-  const title = selectedSection?.title || support?.title || "Course guide";
+  const selectedObjectiveIndex = selectedSection
+    ? Math.max(
+        0,
+        selectedSection.objectives.findIndex(([id]) => id === currentObjective),
+      )
+    : -1;
+  const activeObjective = selectedSection?.objectives[selectedObjectiveIndex];
+  const activeObjectiveId = activeObjective?.[0];
+  const objectivePage = selectedSection
+    ? lessonPages[selectedSection.id - 1][selectedObjectiveIndex]
+    : null;
+  const markdown = objectivePage?.markdown || support?.markdown;
+  const title = selectedSection
+    ? `${activeObjectiveId} · ${activeObjective[1]}`
+    : support?.title || "Course guide";
   const eyebrow = selectedSection
-    ? `Section ${selectedSection.id} · ${selectedSection.weight}% of exam`
+    ? `Section ${selectedSection.id} · Page ${selectedObjectiveIndex + 1} of ${selectedSection.objectives.length} · ${selectedSection.weight}% of exam`
     : support?.eyebrow;
 
-  const allObjectives = useMemo(() => sections.flatMap((section) => section.objectives), []);
   const completed = allObjectives.filter(([id]) => objectiveProgress[id]).length;
 
   useEffect(() => {
     readerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [selection]);
+  }, [selection, activeObjectiveId]);
 
   function choose(next) {
     setSelection(next);
@@ -60,6 +78,12 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
   function toggleObjective(id) {
     setObjectiveProgress((previous) => ({ ...previous, [id]: !previous[id] }));
     setCurrentObjective(id);
+  }
+
+  function openObjective(id) {
+    const sectionId = Number(id.split(".")[0]);
+    setCurrentObjective(id);
+    setSelection(`section-${sectionId}`);
   }
 
   function markSection() {
@@ -94,13 +118,11 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
     if (lesson) choose(`section-${lesson[1]}`);
   }
 
-  const currentIndex = allObjectives.findIndex(([id]) => id === currentObjective);
+  const currentIndex = allObjectives.findIndex(([id]) => id === activeObjectiveId);
   function moveObjective(direction) {
     const next = allObjectives[Math.min(allObjectives.length - 1, Math.max(0, currentIndex + direction))];
     if (!next) return;
-    const sectionId = Number(next[0].split(".")[0]);
-    setCurrentObjective(next[0]);
-    setSelection(`section-${sectionId}`);
+    openObjective(next[0]);
   }
 
   return (
@@ -156,7 +178,7 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
           <h1>{title}</h1>
           {selectedSection && (
             <p className="lesson-summary">
-              Master {selectedSection.objectives.length} official objectives, then prove them in the diagnostic and hands-on lab.
+              {selectedSection.title}. Study this objective, mark it complete with evidence, then continue to the next page.
             </p>
           )}
           <MarkdownRenderer markdown={markdown || ""} hideTitle onInternalLink={openCourseLink} />
@@ -172,8 +194,10 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
               {selectedSection.objectives.map(([id, label]) => (
                 <button
                   key={id}
-                  className={`${objectiveProgress[id] ? "complete" : ""} ${currentObjective === id ? "current" : ""}`}
-                  onClick={() => toggleObjective(id)}
+                  className={`${objectiveProgress[id] ? "complete" : ""} ${activeObjectiveId === id ? "current" : ""}`}
+                  onClick={() => openObjective(id)}
+                  aria-current={activeObjectiveId === id ? "page" : undefined}
+                  aria-label={`Open objective ${id}: ${label}`}
                 >
                   <span className="objective-node">
                     {objectiveProgress[id] ? <Icon name="check" size={13} /> : id.split(".")[1]}
@@ -215,12 +239,12 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
             <Icon name="left" />
           </button>
           <div>
-            <span className="eyebrow">Current objective</span>
-            <strong>{currentObjective} · {allObjectives[currentIndex]?.[1]}</strong>
+            <span className="eyebrow">Objective page</span>
+            <strong>{activeObjectiveId} · {allObjectives[currentIndex]?.[1]}</strong>
           </div>
-          <button className="button primary" onClick={() => toggleObjective(currentObjective)}>
-            <Icon name={objectiveProgress[currentObjective] ? "check" : "right"} size={17} />
-            {objectiveProgress[currentObjective] ? "Completed" : "Mark complete"}
+          <button className="button primary" onClick={() => toggleObjective(activeObjectiveId)}>
+            <Icon name={objectiveProgress[activeObjectiveId] ? "check" : "right"} size={17} />
+            {objectiveProgress[activeObjectiveId] ? "Completed" : "Mark complete"}
           </button>
           <button className="footer-arrow" onClick={() => moveObjective(1)} disabled={currentIndex >= allObjectives.length - 1} aria-label="Next objective">
             <Icon name="right" />
