@@ -23,13 +23,21 @@ function readSection(section) {
 
 test("every official objective has one course reader page", () => {
   for (const section of sections) {
-    const pages = buildObjectivePages(readSection(section), section);
+    const sectionMarkdown = readSection(section);
+    const pages = buildObjectivePages(sectionMarkdown, section);
+    assert.ok(
+      sectionMarkdown.trim().split(/\s+/).length >= 1_500,
+      `section ${section.id} needs deeper lesson content`,
+    );
     assert.equal(pages.length, section.objectives.length);
     assert.deepEqual(
       pages.map(({ id }) => id),
       section.objectives.map(([id]) => id),
     );
-    pages.forEach((page) => assert.ok(page.markdown.length > 100));
+    pages.forEach((page) => assert.ok(
+      page.markdown.trim().split(/\s+/).length >= 250,
+      `objective ${page.id} needs deeper lesson content`,
+    ));
   }
 });
 

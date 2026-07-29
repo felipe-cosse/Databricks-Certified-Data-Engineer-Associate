@@ -102,6 +102,47 @@ The workspace exposes multiple experiences over the same governed data:
 
 The architecture is valuable because teams do not need separate copies of data for every engine. Compute is decoupled from durable storage and governed consistently.
 
+### Follow one request end to end
+
+Suppose an analyst runs a SQL query against `main.sales.orders`:
+
+1. The workspace accepts the request and authenticates the analyst.
+2. Unity Catalog resolves the three-level name and checks the analyst's privileges on the catalog, schema, and table.
+3. The SQL warehouse creates an execution plan. Photon can execute supported parts of that plan.
+4. Compute reads the Delta transaction log to determine the valid table snapshot.
+5. Compute reads the required data files from cloud object storage and applies filters, joins, and aggregations.
+6. The result returns to the analyst, while query history, auditing, and lineage provide operational evidence.
+
+This walkthrough prevents a common category mistake. A permission failure points
+first to identity and Unity Catalog, not to the Delta transaction log. A
+concurrent-write or table-version question points to Delta Lake, not to a
+workspace folder. A slow query points to its compute and physical plan before
+it points to governance.
+
+### Responsibility map
+
+| Requirement or symptom | Primary platform area | Reason |
+|---|---|---|
+| Roll back or inspect a prior table version | Delta Lake | The transaction log records table commits and versions |
+| Apply one permission model across workspaces | Unity Catalog | Governance is centralized above individual compute |
+| Run highly concurrent dashboard queries | SQL warehouse | It is designed for SQL analytics and BI concurrency |
+| Schedule a notebook after a table update | Lakeflow Jobs | Jobs owns orchestration, dependencies, and triggers |
+| Preserve raw files that are not tables | Unity Catalog volume | Volumes govern non-tabular files |
+| Develop and review notebook source | Git folder | Git tracks source history and collaboration |
+
+When a scenario names several components, identify the required capability
+before choosing the component. Databricks products cooperate, but each answer
+should earn its place by satisfying a stated requirement.
+
+### Platform transfer check
+
+Try to answer these without looking back:
+
+- Why does a Parquet directory not automatically provide table time travel?
+- Why can a principal have `SELECT` yet still fail to query a table?
+- Which component should be investigated when a query is authorized but the selected compute does not support the required API?
+- Why can engineering, BI, and machine-learning workloads share governed data without sharing one cluster?
+
 ## 1.2 Choose the right compute
 
 ### Decision matrix
@@ -147,6 +188,47 @@ Running a nightly ETL job on an all-purpose resource simply because it is alread
 - **Dedicated** assigns compute to a single user or group and supports workloads that require capabilities unavailable in Standard.
 
 Use current terms. Older material can call these shared and single-user access modes.
+
+### Worked compute selections
+
+| Scenario | Strong first choice | Deciding requirement |
+|---|---|---|
+| Fifty analysts open dashboards throughout the day | Serverless SQL warehouse | SQL concurrency, rapid startup, and minimal infrastructure management |
+| A nightly Python ETL task uses supported APIs and needs no custom runtime configuration | Serverless job compute | Repeatable production execution with low operational effort |
+| A Scala job requires a pinned runtime and compute-scoped init script | Classic job compute | Language and runtime customization are mandatory |
+| A team explores data interactively with a custom library and current Spark UI access | Classic all-purpose compute | Human iteration plus classic configuration and monitoring |
+| A SQL warehouse must use customer-cloud networking that serverless cannot satisfy | Pro SQL warehouse | SQL workload plus the stated networking boundary |
+| A new declarative streaming pipeline uses governed tables | Serverless pipeline compute | Managed pipeline execution is the supported default |
+
+Notice how “production” does not automatically mean classic and “fast” does
+not automatically mean serverless. The workload must first fit the service's
+language, API, networking, and configuration envelope.
+
+### Cost is workload-shaped
+
+Compare total work, not one price label:
+
+- A resource that stays idle between short runs can cost more than compute that starts for each run.
+- A larger resource can finish sooner, but it is cost-effective only if the shorter duration offsets the higher rate.
+- Serverless can reduce engineering time and overprovisioning, which are operational costs even when they do not appear as compute units.
+- Classic compute can be appropriate for steady or specialized workloads when utilization is high and its controls are genuinely required.
+- Autoscaling helps with changing demand, but poor queries, skew, and unnecessary data movement still waste resources.
+
+The exam normally gives a qualitative deciding requirement rather than asking
+you to calculate a bill. Reject any answer that promises one compute type is
+always cheapest.
+
+### Compute transfer check
+
+For each scenario, say the choice and the disqualifier:
+
+1. A workload requires R and an unsupported custom Spark data source.
+2. A dashboard workload needs high SQL concurrency but no Python execution.
+3. A scheduled notebook currently runs on a shared interactive cluster and frequently breaks when developers change libraries.
+4. A serverless notebook query is slow and the engineer looks for the classic Spark UI.
+
+If you can name both why the selected option fits and why the nearest
+alternative fails, you understand the decision boundary rather than a keyword.
 
 ## Exam decision process
 

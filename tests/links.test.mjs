@@ -37,6 +37,14 @@ function localTargets(markdown) {
     .map((target) => decodeURIComponent(target.split("#")[0].split("?")[0]));
 }
 
+function externalTargets(markdown) {
+  const markdownLinks = [...markdown.matchAll(/!?\[[^\]]*]\((https?:\/\/[^)]+)\)/g)]
+    .map((match) => match[1]);
+  const metadataSources = [...markdown.matchAll(/\bsource=(https?:\/\/[^\s>]+)/g)]
+    .map((match) => match[1]);
+  return [...markdownLinks, ...metadataSources];
+}
+
 test("all local Markdown links and images resolve", () => {
   const broken = markdownRoots.flatMap(markdownFiles).flatMap((filename) => {
     const markdown = readFileSync(filename, "utf8");
@@ -50,4 +58,36 @@ test("all local Markdown links and images resolve", () => {
   });
 
   assert.deepEqual(broken, []);
+});
+
+test("external course links use approved hosts and current source paths", () => {
+  const allowedHosts = new Set([
+    "customer-academy.databricks.com",
+    "docs.databricks.com",
+    "github.com",
+    "img.shields.io",
+    "localhost",
+    "www.databricks.com",
+  ]);
+  const invalid = markdownRoots.flatMap(markdownFiles).flatMap((filename) => {
+    const markdown = readFileSync(filename, "utf8");
+    return externalTargets(markdown).flatMap((target) => {
+      const url = new URL(target);
+      const reasons = [];
+      if (url.hostname !== "localhost" && url.protocol !== "https:") {
+        reasons.push("non-HTTPS");
+      }
+      if (!allowedHosts.has(url.hostname)) reasons.push("unapproved host");
+      if (url.pathname.includes("exam-guide-may-2026-000.pdf")) {
+        reasons.push("superseded exam guide");
+      }
+      return reasons.map((reason) => ({
+        source: filename.slice(repositoryRoot.length + 1),
+        target,
+        reason,
+      }));
+    });
+  });
+
+  assert.deepEqual(invalid, []);
 });

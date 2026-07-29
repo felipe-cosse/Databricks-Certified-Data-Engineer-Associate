@@ -49,6 +49,36 @@ refresh_dashboard (dashboard)
 
 The dashboard task depends on successful transformation, not merely on the job starting.
 
+### Give each task a contract
+
+Before drawing dependencies, define for every task:
+
+| Contract field | Example |
+|---|---|
+| Input | `processing_date`, source table, or upstream task value |
+| Output | Delta table, refreshed dashboard, or validation result |
+| Compute | SQL warehouse, serverless job environment, or classic job compute |
+| Success condition | Output committed and quality threshold met |
+| Retry safety | Repeating the task does not duplicate committed data |
+| Owner | Team responsible for code and failure response |
+
+A dependency should represent a real requirement. If `refresh_dashboard`
+depends on `transform`, it should be because the dashboard requires the
+transformed output—not merely because both tasks happen to be in the same job.
+
+### Validate the graph before execution
+
+Read a DAG from left to right:
+
+1. Every task that consumes an output has the producing task upstream.
+2. No dependency path returns to an earlier task.
+3. Failure and cleanup tasks use deliberate run conditions.
+4. Parallel branches do not write conflicting versions of the same object.
+5. A final task that combines branches waits for all required branches, not just one.
+
+If a scenario shows A → B → C → A, adding a retry or trigger cannot repair it.
+The graph violates the acyclic requirement.
+
 ## 4.3 Dependencies and run conditions
 
 A task can depend on one or more upstream tasks. A downstream task can be configured to run:
@@ -89,6 +119,32 @@ A For each task runs a nested task for each item in an input array. It is useful
 
 Control concurrency. Launching hundreds of iterations at once can overload the source, exceed workspace limits, or create avoidable cost.
 
+### Design failure paths explicitly
+
+Consider `ingest → validate → publish` plus an alert:
+
+- `publish` should run only when validation succeeds.
+- The alert should use a failure condition and run after validation exhausts its allowed retries.
+- Cleanup that must always release an external resource can use an all-done condition.
+- A success notification should not share the failure condition merely because both send messages.
+
+Run conditions describe final upstream states. A task attempt that fails and
+then succeeds after retry leaves a successful final task state, so the
+downstream success path can continue.
+
+### Retry decision table
+
+| Failure | Retry? | Reason |
+|---|---|---|
+| Temporary HTTP 503 from a source | Yes, bounded with delay | The condition is likely transient |
+| Executor lost during an otherwise healthy run | Usually bounded | Infrastructure interruption can recover |
+| SQL references a nonexistent column | No automatic repair | The same code will fail again |
+| Quality rule detects forbidden null keys | Usually no blind retry | Data or rule needs investigation |
+| Task exceeds timeout because input tripled | Diagnose first | Repeating the same plan repeats the timeout |
+
+Retries require idempotent work. If a task appends duplicate rows on every
+attempt, increasing retries makes the incident worse.
+
 ## 4.4 Triggers
 
 ### Scheduled trigger
@@ -127,6 +183,24 @@ Use when:
 
 Lakeflow Jobs can also run continuously, restarting after completion or failure according to job behavior. The exam objective emphasizes scheduled, file-arrival, and table-update triggers, so prioritize those distinctions.
 
+### Trigger boundary examples
+
+- A file-arrival trigger observes that qualifying files arrived; Auto Loader inside the task remembers which files were processed.
+- A table-update trigger observes a table update; it does not guarantee a particular business-quality rule passed unless the upstream process defines that boundary.
+- A scheduled trigger represents time, not readiness. Adding a five-minute delay after an upstream schedule is still a time guess.
+- A continuous trigger keeps a job active; it is not automatically the lowest-cost or lowest-latency design for every source.
+
+Choose the event closest to the true dependency. If gold requires a committed
+silver table, trigger from the silver update rather than the raw file that
+started the upstream work.
+
+### Coalescing and repeated events
+
+Data-driven triggers can observe several updates close together. Design the
+task to process durable source state rather than assuming every event maps
+one-to-one to exactly one business record. The downstream task should be safe
+when updates are coalesced or another update occurs while a run is active.
+
 ## 4.5 Time-based versus data-driven
 
 | Requirement | Better trigger |
@@ -164,6 +238,31 @@ The Jobs UI shows:
 - Upstream and downstream lineage where available
 
 Read the first failed or blocked upstream task before changing downstream code.
+
+### Parameter precedence and task values
+
+Use job parameters for inputs shared across tasks and task parameters for a
+specific task's interface. A downstream task value is useful for small control
+data such as a validation count, selected path, or list of tables. It is not a
+replacement for storing a large dataset in a table or volume.
+
+When debugging a surprising parameter:
+
+1. Inspect the resolved job-run parameters.
+2. Inspect task-level overrides.
+3. Confirm the task type's parameter mechanism: notebook widgets, Python script arguments, or SQL parameters.
+4. Check the exact dynamic-value reference and upstream task key.
+
+### Status-first monitoring walkthrough
+
+If a job is “Succeeded with failures,” do not read that as “every task
+succeeded.” Some tasks failed, but the configured graph allowed successful leaf
+tasks to complete. Open the DAG, find failed tasks, and inspect why downstream
+recovery paths produced the final job state.
+
+For a slow run, split total time into queue/setup, execution, and downstream
+waiting. Compare it with a similar successful run using the same input volume
+and configuration before resizing compute.
 
 ## Exam traps
 

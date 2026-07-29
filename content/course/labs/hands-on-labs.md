@@ -30,7 +30,7 @@ Keep all course artifacts in these schemas so cleanup is easy.
 
 ## Lab 1 — Build a medallion path
 
-**Maps to:** 1.1, 3.1, 3.6  
+**Maps to:** 1.1, 1.2, 3.1, 3.6
 **Target time:** 20 minutes
 
 ### Goal
@@ -113,13 +113,17 @@ DESCRIBE HISTORY main.dea_silver.orders;
 
 ### Evidence
 
-Save row counts at each layer and one sentence about rejected records.
+Save row counts at each layer and one sentence about rejected records. Also record:
+
+- the compute type you used;
+- whether the workload is interactive or scheduled;
+- which different compute type you would choose for a nightly production run, and why.
 
 ---
 
 ## Lab 2 — Prove `COPY INTO` idempotence
 
-**Maps to:** 2.1, 2.2  
+**Maps to:** 2.1, 2.2, 2.6
 **Target time:** 20 minutes
 
 ### Goal
@@ -137,6 +141,8 @@ In a Python notebook cell:
 ```python
 base = "/Volumes/main/dea_bronze/landing/orders"
 
+# Reset only this lab's files so the expected counts remain reproducible.
+dbutils.fs.rm(base, True)
 dbutils.fs.mkdirs(base)
 dbutils.fs.put(
     f"{base}/orders-001.csv",
@@ -152,13 +158,20 @@ dbutils.fs.put(
 
 ### Load
 
+Reset the target table as well. `COPY INTO` file history belongs to the table, so
+deleting only the source files is not a complete reset.
+
 ```sql
-CREATE TABLE IF NOT EXISTS main.dea_bronze.orders_copy (
+DROP TABLE IF EXISTS main.dea_bronze.orders_copy;
+
+CREATE TABLE main.dea_bronze.orders_copy (
   order_id BIGINT,
   customer_id BIGINT,
   amount DECIMAL(12,2)
 ) USING DELTA;
+```
 
+```sql
 COPY INTO main.dea_bronze.orders_copy
 FROM '/Volumes/main/dea_bronze/landing/orders'
 FILEFORMAT = CSV
@@ -184,16 +197,19 @@ Run `COPY INTO` a third time.
 - Why this is incremental batch
 - What state `COPY INTO` is tracking
 - Why a database CDC scenario would need a different method
+- Why Auto Loader would be unnecessary for this small, bounded load
 
 ### Evidence
 
-Record counts after each of the three commands: expected `3 → 3 → 4`.
+After running the reset cells, record counts after each of the three commands:
+expected `3 → 3 → 4`. If you intentionally skip the reset on a later attempt,
+explain why the existing table history changes that expectation.
 
 ---
 
 ## Lab 3 — Incremental files with Auto Loader
 
-**Maps to:** 2.3, 2.7  
+**Maps to:** 2.3–2.7
 **Target time:** 25 minutes
 
 ### Goal
@@ -204,6 +220,12 @@ Use `cloudFiles`, a checkpoint, and a schema location. Introduce a new field.
 source = "/Volumes/main/dea_bronze/landing/events"
 checkpoint = "/Volumes/main/dea_bronze/landing/_checkpoints/events"
 schema_location = "/Volumes/main/dea_bronze/landing/_schemas/events"
+
+# Reset only this lab's table and state. A new stream must not reuse another
+# stream's checkpoint.
+spark.sql("DROP TABLE IF EXISTS main.dea_bronze.events_auto")
+for path in (source, checkpoint, schema_location):
+    dbutils.fs.rm(path, True)
 
 dbutils.fs.mkdirs(source)
 dbutils.fs.put(
@@ -238,10 +260,28 @@ dbutils.fs.put(
     '{"event_id":"e3","kind":"purchase","campaign":"summer"}\n',
     True,
 )
+
+try:
+    run_loader()
+except Exception as exc:
+    message = str(exc)
+    expected_schema_change = (
+        "UnknownFieldException" in message
+        or "NEW_FIELDS_IN_FILE_SCHEMA" in message
+    )
+    if not expected_schema_change:
+        raise
+    print("Expected schema-evolution stop; restart the stream to use the updated schema.")
+
+# With addNewColumns, discovery of the new field updates schemaLocation and
+# stops the stream. The restart processes the pending file with that schema.
 run_loader()
 ```
 
-Depending on configured schema-evolution behavior, the first update after a new column can require a restart. Inspect the table and schema history.
+With `addNewColumns`, the first run that discovers `campaign` stops after
+updating the schema location. The second call is the required restart. In a
+production Lakeflow Job, configure retries so this expected restart can happen
+automatically. Inspect the table and schema history.
 
 ```sql
 SELECT * FROM main.dea_bronze.events_auto ORDER BY event_id;
@@ -252,21 +292,40 @@ DESCRIBE TABLE main.dea_bronze.events_auto;
 
 Run a variant using `_rescued_data` or a schema hint. Introduce a mismatched type and inspect what is preserved.
 
+### Source-method transfer
+
+Complete this decision table. No external credentials are required.
+
+| Source | Candidate | Operational responsibility |
+|---|---|---|
+| Supported CRM requiring CDC | Lakeflow Connect managed connector | Databricks manages source-aware ingestion, retries, and schema handling |
+| Database exposed only through ODBC | Notebook client in a Lakeflow Job | Your team owns query partitioning, incremental state, retries, secrets, and driver compatibility |
+| Unsupported cursor-based REST API | Notebook client in a Lakeflow Job | Your team owns pagination, rate limits, cursor state, idempotence, and API changes |
+| High-volume object-storage files | Auto Loader | Your team owns the data contract; Auto Loader manages scalable file discovery and progress |
+
+For the ODBC row, write a parameterized extraction query for a half-open
+watermark interval (`updated_at >= ? AND updated_at < ?`). Explain where you
+would store the two bound values and why string interpolation and a hard-coded
+password are unsafe. Then identify the managed-connector option you would
+prefer if the same source became supported.
+
 ### Explain
 
 - Checkpoint versus schema location
 - Why an independent stream needs an independent checkpoint
 - Directory listing versus file events
+- Why Lakeflow Connect, custom ODBC/REST code, and Auto Loader assign different operational work to your team
 
 ### Evidence
 
-Save the final schema and the checkpoint path.
+Save the expected schema-evolution error, the successful restart, the final
+schema, the checkpoint path, and the completed source-method decision table.
 
 ---
 
 ## Lab 4 — Clean, join, explode, and deduplicate
 
-**Maps to:** 3.1, 3.2, 3.3, 3.4  
+**Maps to:** 3.1, 3.2, 3.3, 3.4
 **Target time:** 25 minutes
 
 ### Goal
@@ -338,7 +397,7 @@ Save the output and answer the four questions.
 
 ## Lab 5 — Compare gold object types
 
-**Maps to:** 3.6  
+**Maps to:** 3.6
 **Target time:** 20 minutes
 
 ### Goal
@@ -387,7 +446,7 @@ Complete a four-row table answering: stored data, refresh behavior, best consume
 
 ## Lab 6 — Enforce data quality
 
-**Maps to:** 3.7  
+**Maps to:** 3.7
 **Target time:** 20 minutes
 
 ### Delta constraints
@@ -433,7 +492,7 @@ Save one successful write, two failed writes, and an expectation action decision
 
 ## Lab 7 — Build a Lakeflow Jobs DAG
 
-**Maps to:** 4.1–4.4, 6.1, 6.2  
+**Maps to:** 4.1–4.4, 6.1, 6.2
 **Target time:** 30 minutes
 
 ### Goal
@@ -478,7 +537,7 @@ Save a DAG screenshot or a diagram plus:
 
 ## Lab 8 — Validate a Declarative Automation Bundle
 
-**Maps to:** 5.1–5.4  
+**Maps to:** 5.1–5.4
 **Target time:** 30 minutes
 
 ### Local files
@@ -495,7 +554,19 @@ dea-bundle/
 `src/hello.py`:
 
 ```python
-catalog = dbutils.widgets.get("catalog")
+import re
+import sys
+
+from pyspark.sql import SparkSession
+
+if len(sys.argv) != 2:
+    raise ValueError("Usage: hello.py <catalog>")
+
+catalog = sys.argv[1]
+if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", catalog):
+    raise ValueError(f"Unsafe catalog identifier: {catalog!r}")
+
+spark = SparkSession.builder.getOrCreate()
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.dea_bundle_demo")
 print(f"Ready: {catalog}.dea_bundle_demo")
 ```
@@ -508,7 +579,8 @@ bundle:
 
 variables:
   catalog:
-    default: dev
+    description: Existing Unity Catalog catalog used by the demo job
+    default: main
 
 resources:
   jobs:
@@ -518,20 +590,31 @@ resources:
         - task_key: hello
           spark_python_task:
             python_file: ./src/hello.py
+            parameters:
+              - ${var.catalog}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
 
 targets:
   dev:
     default: true
     mode: development
     variables:
-      catalog: dev
+      catalog: main
   prod:
     mode: production
     variables:
       catalog: prod
 ```
 
-The precise task definition can require adjustment for your available compute. The learning goal is target resolution and lifecycle.
+This uses a serverless Python-script task. Python scripts receive bundle
+parameters through `sys.argv`; notebook widgets apply to notebook tasks, not
+`spark_python_task`. The `environment_key` links the task to its serverless
+environment. Replace `main` and `prod` with catalogs that exist in your
+workspace before running either target.
 
 ### Commands
 
@@ -552,18 +635,32 @@ databricks bundle run -t dev hello_job
 ### Evidence
 
 Save validation output for both targets and explain why the same source produces different resolved configuration.
+In each summary, locate the resolved `catalog` argument. Confirm that dev uses
+`main` and prod uses `prod` (or the two accessible catalogs you substituted).
 
 ---
 
 ## Lab 9 — Diagnose and improve a skewed job
 
-**Maps to:** 3.5, 6.3–6.5  
+**Maps to:** 3.5, 6.3–6.5
 **Target time:** 25 minutes
 
 ### Create skew
 
+Run this lab on classic Spark compute so the Spark UI is available. First
+disable automatic broadcast and AQE for a deliberately poor baseline. Save the
+original settings so you can restore them.
+
 ```python
 from pyspark.sql import functions as F
+
+original_aqe = spark.conf.get("spark.sql.adaptive.enabled")
+original_broadcast_threshold = spark.conf.get(
+    "spark.sql.autoBroadcastJoinThreshold"
+)
+
+spark.conf.set("spark.sql.adaptive.enabled", "false")
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
 
 large = (
     spark.range(0, 5_000_000)
@@ -579,9 +676,14 @@ small = spark.range(0, 1001).select(
     F.concat(F.lit("group-"), F.col("id")).alias("label"),
 )
 
-result = large.join(small, "join_key").groupBy("label").count()
-result.count()
+baseline = large.join(small, "join_key").groupBy("label").count()
+baseline.count()
 ```
+
+The small side is intentionally tiny, but the disabled broadcast threshold
+forces a shuffle join. Disabling AQE prevents Spark from repairing the
+demonstration before you can observe the skew. Do not use these settings as
+general production advice.
 
 Inspect Spark UI or query profile:
 
@@ -592,15 +694,38 @@ Inspect Spark UI or query profile:
 
 ### Apply one change
 
-Examples:
+Use explicit broadcast as the first repair:
 
-- Broadcast `small`
-- Confirm AQE skew handling
+```python
+improved = (
+    large
+    .join(F.broadcast(small), "join_key")
+    .groupBy("label")
+    .count()
+)
+improved.count()
+```
+
+Compare the same stage and task metrics. Then restore the session settings:
+
+```python
+spark.conf.set("spark.sql.adaptive.enabled", original_aqe)
+spark.conf.set(
+    "spark.sql.autoBroadcastJoinThreshold",
+    original_broadcast_threshold,
+)
+```
+
+Optional follow-up experiments:
+
+- Remove the explicit broadcast, enable AQE, and confirm whether AQE changes the plan
 - Filter earlier
 - Salt the hot key
 - Adjust shuffle partitions from measured partition size
 
-Run the same input and record the new metrics.
+Change one variable per run and record the new metrics. If your classic compute
+cannot safely process five million rows, reduce the range while retaining the
+90% hot-key distribution and document the new size.
 
 ### Evidence
 
@@ -620,7 +745,7 @@ Explain why the change targets the measured problem.
 
 ## Lab 10 — Govern access with Unity Catalog
 
-**Maps to:** 7.1–7.4  
+**Maps to:** 7.1–7.4
 **Target time:** 30 minutes
 
 ### Table lifecycle
@@ -711,4 +836,3 @@ Save:
 | 10. Unity Catalog security | | |
 
 Hands-on readiness means no objective-critical lab remains blocked and you can explain the output without the walkthrough.
-

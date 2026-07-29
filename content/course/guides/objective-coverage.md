@@ -17,9 +17,9 @@ This map mirrors every objective in the May 2026 exam guide. The identifiers in 
 | 2.2 | `COPY INTO` incremental loading from ADLS, S3, or GCS into Unity Catalog tables | Section 2: `COPY INTO` |
 | 2.3 | Auto Loader, schema enforcement/evolution, directory listing, and file notification | Section 2: Auto Loader |
 | 2.4 | Lakeflow Connect for diverse enterprise sources | Section 2: managed and standard connectors |
-| 2.5 | JDBC/ODBC or REST clients in notebooks, typically orchestrated with Jobs | Section 2: custom-source ingestion |
+| 2.5 | JDBC/ODBC or REST clients in notebooks, typically orchestrated with Jobs | Section 2: JDBC, ODBC, and REST examples; Lab 3 source-method transfer |
 | 2.6 | Choose among Auto Loader, Lakeflow Connect, partner connectors, and other methods | Section 2: decision framework |
-| 2.7 | Semi-structured and unstructured data, including JSON and nested data | Section 2: JSON, `VARIANT`, rescued data, and binary files |
+| 2.7 | Semi-structured and unstructured data, including JSON and nested data | Section 2: JSON, rescued data, binary files, and preview-labeled `VARIANT` enrichment |
 
 ## Section 3 — Data Transformation and Modeling (22%)
 
@@ -79,3 +79,8 @@ This map mirrors every objective in the May 2026 exam guide. The identifiers in 
 - Full mock exams: **3 × 45 questions**
 - AI Prep Guide steps: **6 of 6**
 
+“33 of 33” means every objective has explicit lesson and assessment coverage;
+it is not a claim that every objective can be reproduced without external
+services. Hands-on mappings cover all 33 objectives. Lab 3 uses a simulated
+design artifact for managed connectors and ODBC/REST sources when external
+credentials are unavailable.

@@ -4,6 +4,7 @@ import { objectiveCount, sections } from "../data/curriculum";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { buildObjectivePages } from "../lib/coursePages";
 import { Icon } from "../components/Icon";
+import { GlossaryText } from "../components/GlossaryText";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 
 const allObjectives = sections.flatMap((section) => section.objectives);
@@ -19,10 +20,11 @@ function SectionRow({ section, selected, objectiveProgress, onClick }) {
       className={`section-row ${selected ? "active" : ""}`}
       onClick={onClick}
       aria-current={selected ? "true" : undefined}
+      aria-label={`Open section ${String(section.id).padStart(2, "0")}: ${section.shortTitle}. ${section.weight}% of exam, ${complete} of ${section.objectives.length} objectives complete.`}
     >
       <span className="section-index">{String(section.id).padStart(2, "0")}</span>
       <span className="section-row-body">
-        <span className="section-row-title">{section.shortTitle}</span>
+        <span className="section-row-title"><GlossaryText text={section.shortTitle} focusable={false} /></span>
         <span className="section-row-meta">{section.weight}% · {complete}/{section.objectives.length}</span>
         <span className="section-progress"><i style={{ width: `${percent}%` }} /></span>
       </span>
@@ -175,10 +177,10 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
       <article className="course-reader" ref={readerRef}>
         <div className="reader-inner">
           <span className="eyebrow">{eyebrow}</span>
-          <h1>{title}</h1>
+          <h1><GlossaryText text={title} /></h1>
           {selectedSection && (
             <p className="lesson-summary">
-              {selectedSection.title}. Study this objective, mark it complete with evidence, then continue to the next page.
+              <GlossaryText text={`${selectedSection.title}. Study this objective, mark it complete with evidence, then continue to the next page.`} />
             </p>
           )}
           <MarkdownRenderer markdown={markdown || ""} hideTitle onInternalLink={openCourseLink} />
@@ -202,7 +204,7 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
                   <span className="objective-node">
                     {objectiveProgress[id] ? <Icon name="check" size={13} /> : id.split(".")[1]}
                   </span>
-                  <span><strong>{id}</strong>{label}</span>
+                  <span><strong>{id}</strong><GlossaryText text={label} focusable={false} /></span>
                 </button>
               ))}
             </div>
@@ -240,7 +242,7 @@ export function CourseView({ objectiveProgress, setObjectiveProgress, navigate }
           </button>
           <div>
             <span className="eyebrow">Objective page</span>
-            <strong>{activeObjectiveId} · {allObjectives[currentIndex]?.[1]}</strong>
+            <strong><GlossaryText text={`${activeObjectiveId} · ${allObjectives[currentIndex]?.[1] || ""}`} /></strong>
           </div>
           <button className="button primary" onClick={() => toggleObjective(activeObjectiveId)}>
             <Icon name={objectiveProgress[activeObjectiveId] ? "check" : "right"} size={17} />

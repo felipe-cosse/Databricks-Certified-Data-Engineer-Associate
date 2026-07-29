@@ -22,6 +22,20 @@ Separate these concerns:
 
 Current official guidance uses Git folders for interactive development and bundles for production CI/CD.
 
+### One change has several representations
+
+A feature usually moves through:
+
+```text
+working files → Git commit → reviewed pull request → merged revision
+→ validated bundle → deployed resources → executed job
+```
+
+These are not interchangeable states. A notebook that runs in a developer
+workspace is not reviewed. A merged commit is not deployed. A validated bundle
+has not run its transformation. State exactly which boundary the scenario has
+crossed.
+
 ## 5.2 Git folders workflow
 
 1. Clone or create a Git folder connected to the remote repository.
@@ -43,6 +57,25 @@ Git folders support pull, push, commit, branch management, diffing, merging, reb
 - Sharing one Git folder among multiple developers
 - Committing secrets
 - Deploying a branch that has not passed review
+
+### Source-of-truth rules
+
+- The remote Git repository is the authoritative source history.
+- A developer's Git folder is a working checkout, not a shared production runtime.
+- Pull-request review and protected-branch enforcement happen in the Git provider.
+- Bundle configuration is the source for bundle-managed Databricks resources.
+- The production UI is an observation and emergency-management surface, not the normal place to create unreviewed drift.
+
+When an urgent UI edit is unavoidable, reconcile it back into source and
+redeploy through the normal process. Otherwise the next bundle deployment can
+replace it.
+
+### Conflict example
+
+Two developers should use separate Git folders and feature branches. If both
+edit the same checkout, its active branch and working tree become shared
+mutable state. Separate checkouts isolate unfinished work; Git then provides
+the deliberate merge and conflict-resolution boundary.
 
 ## 5.3 Declarative Automation Bundles
 
@@ -104,6 +137,34 @@ targets:
 
 Exact resource fields evolve. Use the current schema and `databricks bundle validate`; understand the architecture rather than memorizing every YAML property.
 
+### What belongs in a bundle
+
+Bundle source should describe repeatable assets and their relationships:
+
+- job and pipeline definitions;
+- source files, notebooks, wheels, and artifacts;
+- parameters and environment variables that are safe to store;
+- target-specific workspace paths, identities, and destinations;
+- permissions and operational settings supported by the resource schema.
+
+Secrets do not become safe merely because they are represented as variables.
+Store secret references or use workload authentication; do not commit secret
+values.
+
+### Configuration resolution
+
+Read a bundle from broad to specific:
+
+1. Top-level defaults establish the common definition.
+2. Custom variables expose intended configuration inputs.
+3. A selected target overrides environment-specific settings.
+4. CLI or deployment-system inputs can supply allowed values.
+5. Substitutions resolve bundle, workspace, and resource context.
+
+Use `bundle summary -t <target>` to inspect the resolved identity and
+resources. The resolved configuration—not one isolated YAML line—is what will
+be deployed.
+
 ## 5.4 Variables, substitutions, targets, and overrides
 
 ### Variables
@@ -144,6 +205,38 @@ One codebase plus target overrides is safer than three drifting copies of the pr
 ### Development and production modes
 
 Development mode can apply developer-friendly defaults and isolate resources. Production mode applies production-oriented validation and behavior. Do not rely on mode alone for every organizational control; define identities, permissions, paths, and approvals explicitly.
+
+### Variable versus substitution
+
+A custom variable is a value your project defines, such as `${var.catalog}`.
+A substitution reads known bundle context, such as `${bundle.target}` or a
+deployed resource ID. Confusing them produces expressions that cannot resolve.
+
+Keep business logic environment-neutral:
+
+```text
+code asks for "catalog"
+dev target supplies "dev"
+test target supplies "test"
+prod target supplies "prod"
+```
+
+Duplicating the transformation three times makes fixes and reviews diverge.
+
+### Promotion integrity
+
+Promote the same reviewed commit through test and production. Rebuilding or
+editing source between those deployments invalidates the evidence collected in
+test. Environment values can differ; the reviewed implementation should not.
+
+Record:
+
+- commit identifier;
+- selected target;
+- resolved bundle summary;
+- test results;
+- deployment identity;
+- approval and deployment time.
 
 ## 5.5 Bundle lifecycle
 
@@ -189,6 +282,18 @@ A strong promotion flow:
 
 Do not rebuild different code for each environment. Change configuration, identity, and destination through targets.
 
+### Command boundaries
+
+| Command | Proves | Does not prove |
+|---|---|---|
+| `bundle validate` | Resolved configuration conforms to supported schemas | Resources exist or transformations are correct |
+| `bundle summary` | Resolved bundle identity and planned resources are visible | The resources were deployed |
+| `bundle deploy` | Bundle-managed resources were applied | The job completed successfully |
+| `bundle run` | A selected deployed resource was started | Every data-quality or business result is correct |
+
+Choose the command from the requested state change. Running before deployment
+or treating validation as an integration test crosses the wrong boundary.
+
 ## 5.6 Authentication and secrets
 
 Automated production deployments should use a workload identity such as a service principal and follow least privilege. Prefer workload identity federation where supported. Do not store personal access tokens or cloud secrets in bundle YAML or Git.
@@ -197,6 +302,30 @@ Keep deployment identity and run identity conceptually separate:
 
 - Deployment identity creates or updates resources.
 - Run identity accesses data and services when the job executes.
+
+### Identity separation example
+
+The CI workload identity may need permission to update one production job but
+does not need `SELECT` on customer data. The job's run identity may need
+`SELECT` on silver and `MODIFY` on gold but should not be able to deploy
+arbitrary workspace resources.
+
+This separation limits the impact of either credential. A developer's personal
+token is a poor production dependency because employment changes, rotation,
+and individual privileges can interrupt or over-authorize automation.
+
+### CI/CD failure triage
+
+Locate the failing boundary:
+
+- Git failure: branch, merge conflict, or remote authentication.
+- Test failure: application logic or test environment.
+- Validation failure: bundle syntax, schema, or unresolved configuration.
+- Deployment failure: workspace authentication, permissions, or resource conflict.
+- Run failure: task environment, data access, code, or source behavior.
+
+Do not respond to a validation error by resizing job compute, or to a task OOM
+by changing Git branch policy.
 
 ## Exam traps
 

@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "content:interleave": "node scripts/interleave-practice-exams.mjs",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:links:external": "node scripts/check-external-links.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
@@ -17,4 +19,3 @@
   },
   "devDependencies": {}
 }
-

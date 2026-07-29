@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { GlossaryText } from "./GlossaryText";
 
 function inline(text, onInternalLink) {
   const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
@@ -7,7 +8,7 @@ function inline(text, onInternalLink) {
       return <code key={index}>{token.slice(1, -1)}</code>;
     }
     if (token.startsWith("**") && token.endsWith("**")) {
-      return <strong key={index}>{token.slice(2, -2)}</strong>;
+      return <strong key={index}><GlossaryText text={token.slice(2, -2)} /></strong>;
     }
     const link = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (link) {
@@ -31,7 +32,7 @@ function inline(text, onInternalLink) {
         </a>
       );
     }
-    return <Fragment key={index}>{token}</Fragment>;
+    return <Fragment key={index}><GlossaryText text={token} /></Fragment>;
   });
 }
 

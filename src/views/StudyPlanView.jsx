@@ -1,6 +1,7 @@
 import { aiPrepSteps, labs, renamedProducts, sections } from "../data/curriculum";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";
+import { GlossaryText } from "../components/GlossaryText";
 
 const initialPlan = {
   startDate: "",
@@ -97,9 +98,10 @@ export function StudyPlanView() {
               className={plan.steps[index] ? "complete" : ""}
               onClick={() => toggle("steps", index)}
               aria-pressed={Boolean(plan.steps[index])}
+              aria-label={`Step ${index + 1}: ${title}. ${description}`}
             >
               <span className="check-box">{plan.steps[index] && <Icon name="check" size={15} />}</span>
-              <span><small>Step {index + 1}</small><strong>{title}</strong><p>{description}</p></span>
+              <span><small>Step {index + 1}</small><strong><GlossaryText text={title} focusable={false} /></strong><p><GlossaryText text={description} focusable={false} /></p></span>
             </button>
           ))}
         </div>
@@ -115,7 +117,7 @@ export function StudyPlanView() {
             const value = Number(plan.confidence[section.id] || 0);
             return (
               <div key={section.id}>
-                <span><strong>S{section.id} · {section.shortTitle}</strong><small>{section.weight}% of exam</small></span>
+                <span><strong>S{section.id} · <GlossaryText text={section.shortTitle} /></strong><small>{section.weight}% of exam</small></span>
                 <input
                   type="range"
                   min="0"

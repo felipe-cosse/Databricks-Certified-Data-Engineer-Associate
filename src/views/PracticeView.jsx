@@ -4,6 +4,7 @@ import { sections } from "../data/curriculum";
 import { parseQuestions, scoreQuestions } from "../lib/parse";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";
+import { GlossaryText } from "../components/GlossaryText";
 
 function DiagnosticSession({ section, questions, onExit, onComplete }) {
   const [answers, setAnswers] = useState({});
@@ -34,7 +35,7 @@ function DiagnosticSession({ section, questions, onExit, onComplete }) {
       <div className="practice-heading">
         <div>
           <span className="eyebrow">Section {section.id} diagnostic · {section.weight}%</span>
-          <h1>{section.title}</h1>
+          <h1><GlossaryText text={section.title} /></h1>
           <p>Choose one answer for every question. Explanations appear only after you submit.</p>
         </div>
         {submitted && (
@@ -62,7 +63,7 @@ function DiagnosticSession({ section, questions, onExit, onComplete }) {
               <span>Question {question.number} of {questions.length}</span>
               <small>Objective {question.objective}</small>
             </header>
-            <h2>{question.question}</h2>
+            <h2><GlossaryText text={question.question} /></h2>
             <div className="choice-list" role="radiogroup" aria-label={`Question ${question.number}`}>
               {Object.entries(question.options).map(([letter, label]) => {
                 const selected = answers[question.id] === letter;
@@ -75,10 +76,11 @@ function DiagnosticSession({ section, questions, onExit, onComplete }) {
                     onClick={() => !submitted && setAnswers((previous) => ({ ...previous, [question.id]: letter }))}
                     role="radio"
                     aria-checked={selected}
+                    aria-label={`${letter}. ${label}`}
                     disabled={submitted}
                   >
                     <span className="choice-letter">{letter}</span>
-                    <span>{label}</span>
+                    <span><GlossaryText text={label} focusable={false} /></span>
                     {correct && <Icon name="check" size={18} />}
                   </button>
                 );
@@ -87,7 +89,7 @@ function DiagnosticSession({ section, questions, onExit, onComplete }) {
             {submitted && (
               <div className="rationale">
                 <span className="eyebrow">{answers[question.id] === question.answer ? "Correct" : `Correct answer: ${question.answer}`}</span>
-                <p>{question.rationale}</p>
+                <p><GlossaryText text={question.rationale} /></p>
                 {question.reference && <p className="reference-line">{question.reference}</p>}
               </div>
             )}
@@ -168,7 +170,7 @@ export function PracticeView() {
             <div className="practice-table-row" key={section.id}>
               <div className="practice-section-name">
                 <span className="section-index">{String(section.id).padStart(2, "0")}</span>
-                <span><strong>{section.title}</strong><small>{section.objectives.length} objectives · 10 questions</small></span>
+                <span><strong><GlossaryText text={section.title} focusable={false} /></strong><small>{section.objectives.length} objectives · 10 questions</small></span>
               </div>
               <span className="weight-cell">{section.weight}%</span>
               <span className={`best-cell ${(score?.percent || 0) >= 80 ? "pass" : ""}`}>

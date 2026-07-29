@@ -4,12 +4,17 @@
 
 These original practice exams are not psychometrically calibrated and do not predict the official passing score. Use them to reveal coverage gaps and build stamina.
 
-| Raw score | Interpretation | Next action |
+| Raw score | Observation from this form | Next action |
 |---:|---|---|
-| 41–45 | Strong | Repair misses and verify hands-on gaps |
-| 36–40 | Developing readiness | Repair misses; repeat weak diagnostics |
-| 30–35 | Material gaps | Deep-dive weak objectives and complete mapped labs |
-| Below 30 | Broad gaps | Return to section diagnostics before another full mock |
+| 41–45 | Few observed gaps | Repair misses and verify hands-on transfer before drawing a readiness conclusion |
+| 36–40 | Several observed gaps | Repair misses; repeat weak diagnostics with new scenarios |
+| 30–35 | Material observed gaps | Deep-dive weak objectives and complete mapped labs |
+| Below 30 | Broad observed gaps | Return to section diagnostics before another full mock |
+
+Use the first closed-book attempt as the score evidence. A retake is a repair
+check, not a comparable readiness measure, because recognition and remembered
+answers inflate it. The three forms use different interleaved domain orders,
+but they remain authored practice rather than calibrated exams.
 
 ## Results
 
@@ -48,4 +53,3 @@ Copy this for every wrong answer and every correct guess.
 - Official source:
 - New transfer scenario:
 - Retest date:
-

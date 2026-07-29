@@ -24,6 +24,7 @@ import diagnostic7 from "../../content/assessments/diagnostics/section-07-diagno
 import exam1 from "../../content/assessments/practice-exams/practice-exam-1.md?raw";
 import exam2 from "../../content/assessments/practice-exams/practice-exam-2.md?raw";
 import exam3 from "../../content/assessments/practice-exams/practice-exam-3.md?raw";
+import { glossaryEntries } from "./glossary";
 
 export const lessons = [
   platform,
@@ -38,6 +39,22 @@ export const lessons = [
 export const supportingResources = [
   { id: "guide", title: "Course guide", eyebrow: "Start here", markdown: courseGuide },
   { id: "coverage", title: "Objective coverage", eyebrow: "33 of 33", markdown: coverage },
+  {
+    id: "glossary",
+    title: "Plain-language glossary",
+    eyebrow: `${glossaryEntries.length} terms`,
+    markdown: [
+      "# Plain-language Glossary",
+      "",
+      "Hover over any dotted term in the course, or focus it with the keyboard, to see the same definition in context.",
+      "",
+      "| Term | Plain-language meaning |",
+      "|---|---|",
+      ...[...glossaryEntries]
+        .sort((left, right) => left.term.localeCompare(right.term))
+        .map((entry) => `| ${entry.term} | ${entry.definition} |`),
+    ].join("\n"),
+  },
   { id: "ai-prep", title: "Six-step AI prep system", eyebrow: "Study method", markdown: aiPrep },
   { id: "renames", title: "Renamed products", eyebrow: "Exam traps", markdown: renamed },
   { id: "labs", title: "Hands-on lab manual", eyebrow: "10 labs", markdown: labs },

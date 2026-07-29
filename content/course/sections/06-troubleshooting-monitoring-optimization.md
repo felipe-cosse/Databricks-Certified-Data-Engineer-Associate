@@ -33,6 +33,35 @@ Inspect:
 
 If setup time increased but execution stayed stable, changing shuffle partitions is unrelated. If queue time increased, inspect concurrency and capacity. If one transformation task doubled while upstream volume grew tenfold, the change might be expected rather than a regression.
 
+### Build a comparable baseline
+
+Capture a compact run fingerprint:
+
+| Dimension | Current run | Baseline run |
+|---|---:|---:|
+| Input rows/files/bytes | | |
+| Code revision | | |
+| Runtime and compute | | |
+| Queue/setup time | | |
+| Execution time | | |
+| Longest task | | |
+| Shuffle read/write | | |
+| Spill and failed retries | | |
+
+Choose a baseline with similar workload shape. Yesterday's run is not
+comparable if it processed one-tenth the data, used a different runtime, or
+benefited from a warm cache.
+
+### Normalize before declaring regression
+
+Suppose duration rises from 20 to 40 minutes while input rises from 100 GB to
+300 GB. Raw duration doubled, but throughput improved from 5 GB/minute to
+7.5 GB/minute. That does not prove every stage is healthy, but it prevents the
+incorrect conclusion that the entire job regressed.
+
+Conversely, stable total duration can hide deterioration if input volume fell.
+Compare both absolute service-level requirements and normalized efficiency.
+
 ## 6.2 Read the Lakeflow Jobs UI
 
 ### Status-first triage
@@ -67,6 +96,30 @@ Track:
 - Runtime or code-version changes
 
 Run history answers “is this abnormal?” Logs and Spark/query execution evidence answer “why?”
+
+### Separate root cause, propagation, and recovery
+
+In a failed DAG:
+
+- The first task with a causal error is the likely root cause.
+- Downstream skipped tasks show propagation through dependencies.
+- A successful cleanup or notification task shows recovery behavior.
+- The final job status summarizes configured leaf-task outcomes; it does not erase intermediate failures.
+
+Do not start from the last red or skipped box merely because it is visually
+closest to the end. Walk upstream until you find the first unexplained state.
+
+### Trend versus incident
+
+One stack trace answers what happened in one attempt. A trend view answers
+whether the failure repeats by task, time, runtime, source, or parameter.
+
+Examples:
+
+- failures begin after a source schema change: compare validation inputs and code;
+- setup time increases after a library update: inspect environment installation;
+- timeouts occur only for month-end volume: compare input and the slow stage;
+- runs are skipped at the same hour: inspect concurrency limits and overlapping schedules.
 
 ## 6.3 Diagnose Spark work
 
@@ -152,6 +205,30 @@ Choose a fix for the component that failed. Increasing driver memory does not re
 
 Classic all-purpose and job compute expose Spark UI and compute metrics. Serverless notebooks and jobs use query insights and query profiles; Spark UI is not available. Read the compute type before choosing a troubleshooting interface.
 
+### Read the evidence in order
+
+1. Find the stage or operator that dominates duration.
+2. Compare task maximum, median, and distribution.
+3. Compare input, shuffle, output, and spill.
+4. Identify whether the driver or executors failed.
+5. Inspect the physical plan for exchanges, joins, and scans.
+6. Form one cause-and-fix hypothesis.
+
+This order prevents “increase memory” from becoming a universal answer.
+
+### Symptom combinations
+
+| Evidence combination | Strong hypothesis | Targeted experiment |
+|---|---|---|
+| One task is 20× slower and reads 15× median data | Skew | Inspect hot keys and AQE; test broadcast or salting where justified |
+| All tasks are large and spill similarly | Too much data per task | Increase measured parallelism or reduce row width |
+| Shuffle dwarfs output after repeated sorts/deduplication | Unnecessary wide work | Remove or move wide operations after early filters |
+| Driver dies after `collect()` | Unbounded local materialization | Keep processing distributed or bound the result |
+| Executors die after an unexpected broadcast | Broadcast side too large | Remove hint/lower eligibility and test a shuffle join |
+
+Apply one change and verify output equality as well as performance. A faster
+query that drops rows is not an optimization.
+
 ## 6.4 Liquid clustering
 
 Liquid clustering is a data-layout technique that replaces rigid partitioning and `ZORDER` for many Databricks tables.
@@ -185,6 +262,29 @@ Current guidance recommends liquid clustering for new tables, particularly for:
 - Changing query patterns
 - Tables that are awkward to partition
 
+### Choose clustering keys from access patterns
+
+A useful key appears frequently in selective filters and helps data skipping.
+High-cardinality customer IDs can be good liquid-clustering candidates even
+though they are poor traditional directory partitions.
+
+Avoid:
+
+- adding every filter column;
+- choosing keys only because they are business keys;
+- retaining partitioning or `ZORDER` on the same liquid-clustered table;
+- changing keys without measuring representative queries.
+
+When query patterns change, liquid clustering allows the key definition to
+evolve. Reclustering occurs through optimization rather than by rewriting the
+directory partition design.
+
+### Layout does not replace query design
+
+Clustering can reduce files read, but it does not repair a Cartesian join,
+incorrect filter, or unnecessary full-table aggregation. Confirm the query can
+use data skipping and that the selected keys match actual predicates.
+
 ## 6.5 Predictive optimization
 
 Predictive optimization automatically runs maintenance on Unity Catalog managed tables:
@@ -198,6 +298,25 @@ It reduces scheduled-maintenance code and adapts work to observed needs. Automat
 Critical boundary: predictive optimization applies to eligible **Unity Catalog managed tables**, not arbitrary external tables whose lifecycle you manage.
 
 If predictive optimization manages `OPTIMIZE`, do not keep redundant scheduled optimize jobs.
+
+### Separate layout choice from maintenance automation
+
+- Liquid clustering defines how table data should be organized.
+- `OPTIMIZE` performs file-layout work, including incremental clustering.
+- Predictive optimization decides when eligible managed tables need supported maintenance.
+- `VACUUM` removes obsolete files according to retention rules.
+- `ANALYZE` updates statistics used by query planning.
+
+These capabilities cooperate but are not synonyms. A question about changing
+filter keys points to liquid clustering; a question about removing a redundant
+nightly maintenance workflow points to predictive optimization.
+
+### Eligibility boundary
+
+Check table ownership before recommending automation. Predictive optimization
+targets eligible Unity Catalog managed tables. An external table can still be
+queried and optimized through separately managed processes, but its file
+lifecycle is not handed to Unity Catalog in the same way.
 
 ## 6.6 Cluster startup failures
 
@@ -225,6 +344,26 @@ Do not debug transformation code when the cluster never started.
 5. Compare to a recently successful cluster definition.
 6. Retry only when the cause can be transient.
 
+### Startup timeline
+
+Classify the last successful boundary:
+
+```text
+request accepted → cloud resources allocated → network/storage reached
+→ init scripts run → libraries installed → Spark ready → task code starts
+```
+
+If nodes never allocate, notebook transformation logic is irrelevant. If Spark
+becomes ready and the Python import fails, the problem is no longer a cluster
+startup failure. The event log tells you how far the process progressed.
+
+### Safe retry reasoning
+
+Cloud-capacity shortage or a transient control-plane error can justify a
+bounded retry. Invalid IAM, a blocked network route, or a failing init script
+requires a configuration repair. Repeating a deterministic bootstrap failure
+wastes time and compute attempts.
+
 ## 6.7 Library conflicts
 
 Symptoms:
@@ -243,6 +382,33 @@ Responses:
 - Reproduce with the same compute and dependency definition as production.
 
 “Install one more version” can worsen the conflict.
+
+### Match development and production environments
+
+“Works in my notebook” often means the interactive session contains an
+undeclared package or state. Production should derive its environment from a
+versioned task, bundle, wheel, or environment definition.
+
+Compare:
+
+- Databricks Runtime or serverless environment version;
+- Python and Java/Scala compatibility;
+- cluster-, task-, and notebook-scoped installations;
+- transitive dependency versions;
+- driver and executor availability;
+- import path and package name.
+
+Use a clean environment to prove the declared dependency set is sufficient.
+
+### OOM decision boundary
+
+Driver and executor memory failures need different repairs:
+
+- Bound `collect`, `toPandas`, notebook display, and local Python objects for driver OOM.
+- Reduce skew, partition size, broadcast size, caching, or UDF pressure for executor OOM.
+- Increase the relevant memory only after identifying why that component needs it.
+
+The error location and task distribution should justify the change.
 
 ## Evidence-to-action table
 

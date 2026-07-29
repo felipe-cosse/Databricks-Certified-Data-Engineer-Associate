@@ -1,7 +1,7 @@
 # Section 2 — Data Ingestion and Loading
 
-**Exam weight:** 21%  
-**Official objectives:** 7  
+**Exam weight:** 21%
+**Official objectives:** 7
 **Mock allocation:** 9 of 45 questions
 
 ## Orientation
@@ -37,6 +37,33 @@ A daily `COPY INTO` can be incremental batch. An Auto Loader stream can be incre
 | Small local file for exploration | Workspace upload or Unity Catalog volume | Simple manual entry point, not a production ingestion architecture |
 
 Official guidance is to begin with the most managed layer that supports the source and requirements, then move to a more customizable layer only when necessary.
+
+### Separate four design questions
+
+Do not collapse every ingestion requirement into “batch or streaming.” Ask:
+
+1. **Is the input bounded?** A historical backfill ends; an event feed is unbounded.
+2. **How is progress remembered?** File history, a streaming checkpoint, a CDC cursor, or a custom watermark must survive retries.
+3. **What starts the work?** A schedule, file arrival, table update, continuous trigger, or manual run is an orchestration choice.
+4. **Who owns source behavior?** A managed connector can own source-specific retries and schema changes; custom code makes your team responsible.
+
+For example, Auto Loader with `AvailableNow` is incremental and uses Structured
+Streaming state, but each triggered run is bounded and stops after processing
+the available backlog. “Uses streaming APIs” and “runs continuously” are not
+the same statement.
+
+### State decides whether a retry is safe
+
+| Method | Progress state | Unsafe reset |
+|---|---|---|
+| `COPY INTO` | Loaded-file history associated with the target table | Recreating the table and assuming the old file history remains |
+| Auto Loader | Streaming checkpoint plus a separate schema location | Deleting the checkpoint merely to clear a UI or error |
+| Managed CDC connector | Connector and pipeline state | Rebuilding the destination without a documented resynchronization plan |
+| Custom REST client | Cursor, watermark, and committed-output boundary designed by your team | Keeping the next cursor only in notebook memory |
+| Custom JDBC/ODBC extract | Stored high watermark or processed key range | Advancing the watermark before the destination write commits |
+
+An exam retry question is usually a state question in disguise. Identify which
+state says “this input is already complete” and when that state is committed.
 
 ## 2.2 `COPY INTO`
 
@@ -75,6 +102,32 @@ Use `COPY INTO` when:
 Do not build a manual “list every file, compare filenames, insert” process when `COPY INTO` already provides retryable file tracking.
 
 Schema mapping and evolution options depend on format and configuration. Validate the target schema deliberately; idempotence does not prove that columns were parsed correctly.
+
+### Reason about a three-run sequence
+
+Assume files A and B contain 100 rows each:
+
+1. The first `COPY INTO` discovers A and B, commits 200 rows, and records both files.
+2. The identical second command discovers the same files but skips them, so the table remains at 200 rows.
+3. File C arrives with 50 rows. The third command skips A and B and commits only C, producing 250 rows.
+
+This is idempotent file ingestion, not row-level deduplication. If two
+different files contain the same business row, both rows can load. Business-key
+deduplication belongs in transformation logic.
+
+Avoid `FORCE = TRUE` unless replaying already loaded files is intentional,
+because forced reloads can duplicate rows. A retry after an uncertain client
+response normally uses the same command without forcing.
+
+### When `COPY INTO` stops being the best fit
+
+- Very high file counts and frequent arrivals favor Auto Loader's scalable discovery.
+- Inserts, updates, and deletes from a database favor a CDC-capable connector.
+- Stateful event-time processing requires Structured Streaming or a Lakeflow pipeline.
+- Querying a remote source without copying points to federation.
+
+The decision is not that `COPY INTO` is old or weak; its bounded SQL model is
+optimized for a different operating shape.
 
 ## 2.3 Auto Loader
 
@@ -150,6 +203,31 @@ raw = (
 )
 ```
 
+### Schema evolution is an operational event
+
+With `addNewColumns`, Auto Loader records a newly discovered schema and stops
+the current stream. The restart uses that updated schema to process the pending
+file. This stop is deliberate: a running query should not silently change its
+output contract halfway through a micro-batch.
+
+Production implications:
+
+- Keep `schemaLocation` durable and separate from the checkpoint.
+- Configure an appropriate Jobs retry so an expected new-column stop can restart.
+- Alert on repeated schema failures; retries cannot repair an incompatible contract forever.
+- Measure rescued-data frequency and expose it to the silver-quality workflow.
+- Give independent streams independent checkpoints, even when they read the same source path.
+
+If a scenario says the schema location updated but the new file did not reach
+the table, restart the stream; do not delete its state.
+
+### Discovery mode does not replace processing state
+
+Directory listing and managed file events both feed the same Auto Loader
+processing model. File events primarily solve discovery scale and listing
+cost. They do not replace the checkpoint, infer business keys, deduplicate
+rows inside different files, or decide how silver handles schema drift.
+
 ## 2.4 Lakeflow Connect
 
 Lakeflow Connect includes:
@@ -182,6 +260,25 @@ For a supported operational database needing inserts, updates, and deletes with 
 
 Lakeflow Connect copies source data into governed destination tables. Lakehouse Federation queries a remote source without moving it. If the requirement is low-latency operational reads without replication, federation might fit; if downstream pipelines need a durable ingested copy, use ingestion.
 
+### Managed ingestion lifecycle
+
+A managed-connector design still requires engineering decisions:
+
+1. Create a least-privilege Unity Catalog connection.
+2. Choose source objects, destination catalog/schema, and supported CDC behavior.
+3. Run the initial snapshot or backfill.
+4. Continue incremental ingestion from connector-managed state.
+5. Monitor freshness, failures, schema changes, and destination quality.
+6. Restrict destination access and transform bronze data before business use.
+
+“Managed” moves source-specific maintenance to Databricks; it does not remove
+data ownership, security review, quality rules, or downstream modeling.
+
+The same operational database can support different patterns. Federation fits
+a current ad hoc lookup that should not create a copy. Managed ingestion fits a
+durable history that must remain usable during a source outage and join to
+other lakehouse data.
+
 ## 2.5 JDBC, ODBC, and REST
 
 Use custom clients when no suitable managed or standard connector satisfies the source behavior.
@@ -204,6 +301,39 @@ orders.write.mode("append").saveAsTable("main.bronze.orders_jdbc")
 
 For large relational reads, partition the JDBC read by a suitable numeric/date range where supported. A single unpartitioned JDBC read can bottleneck on one connection.
 
+### ODBC example
+
+ODBC is a client-driver interface rather than a Spark-native distributed
+reader. It can be appropriate when a source exposes a supported ODBC driver but
+no suitable managed or standard connector. The notebook process makes the
+connection, so large extracts require deliberate pagination or key-range
+partitioning instead of assuming Spark will parallelize the read.
+
+```python
+import pyodbc
+
+connection = pyodbc.connect(
+    dbutils.secrets.get("ingestion", "odbc-connection-string")
+)
+cursor = connection.cursor()
+cursor.execute(
+    """
+    SELECT order_id, customer_id, amount, updated_at
+    FROM dbo.orders
+    WHERE updated_at >= ? AND updated_at < ?
+    """,
+    window_start,
+    window_end,
+)
+rows = cursor.fetchmany(10_000)
+```
+
+Use parameter binding rather than interpolating values into SQL. Install and
+test the matching ODBC driver on compatible compute, close connections, bound
+memory with batch fetches, persist the extraction watermark, and keep
+credentials in a secret scope. For high-volume sources, prefer a supported
+managed connector or a Spark JDBC read when it meets the source requirements.
+
 ### REST pattern
 
 A robust REST ingestion notebook should:
@@ -217,6 +347,40 @@ A robust REST ingestion notebook should:
 7. Run as a Lakeflow Job with monitoring and alerts.
 
 The platform cannot automatically supply CDC, schema evolution, and API maintenance for arbitrary custom code. That ownership cost is part of the ingestion-method decision.
+
+### Custom ingestion production checklist
+
+Code that returns rows in a notebook is only an extraction prototype. A
+production custom client also needs:
+
+- secret-based authentication and rotation;
+- deterministic page, range, or watermark boundaries;
+- bounded memory and source-friendly concurrency;
+- retry classification for transient versus permanent failures;
+- idempotent destination writes;
+- state advancement only after the corresponding data commit;
+- schema validation and raw-response preservation where appropriate;
+- timeouts, metrics, alerts, and a replay procedure;
+- a Jobs run identity with only the required privileges.
+
+For JDBC, Spark can parallelize range reads when a suitable partition column
+and bounds exist. ODBC is commonly client-driven, so do not assume Spark
+automatically distributes it. REST pagination is also client logic; its cursor
+must be durable.
+
+### Half-open watermark intervals
+
+A reliable incremental query often uses:
+
+```text
+updated_at >= previous_watermark
+AND updated_at < current_watermark
+```
+
+The lower bound is inclusive and the upper bound is exclusive, so adjacent
+runs meet without a gap. If multiple records can share a timestamp, add a
+stable tie-breaker or overlap-and-deduplicate strategy. Advancing the current
+watermark before the target commit risks permanent data loss after a failure.
 
 ## 2.6 Selection framework
 
@@ -239,11 +403,49 @@ Ask these questions in order:
 - **Kafka with custom stateful Spark logic:** standard connector/Structured Streaming or a Lakeflow pipeline.
 - **Unsupported niche SaaS API:** partner connector if trustworthy and suitable; otherwise a Jobs-orchestrated REST implementation.
 
+### Score candidate methods against the requirement
+
+| Requirement | Prefer | Reject when |
+|---|---|---|
+| Minimal source-specific maintenance | Managed connector | It lacks the required region, objects, latency, or release state |
+| Very large, frequent file discovery | Auto Loader | The source is not file-based or requires database CDC |
+| Simple periodic SQL file load | `COPY INTO` | Arrival scale or transformation state requires streaming |
+| Custom event logic over Kafka | Standard connector with Structured Streaming | A managed connector already satisfies the behavior |
+| Query remote data without a local copy | Lakehouse Federation | Downstream work needs independent history or availability |
+| Unsupported API behavior | Custom REST client in Jobs | A managed or partner connector satisfies the requirements |
+
+Start with the most managed method that satisfies every hard requirement. Move
+downward in abstraction only for a named capability gap. “Custom is more
+flexible” is incomplete unless the scenario requires that flexibility.
+
+### Selection transfer exercise
+
+For each case, name the state, trigger, and operational owner:
+
+1. Ten CSV files arrive monthly and SQL is the team's operating language.
+2. A supported database must replicate updates and deletes with little custom maintenance.
+3. Millions of JSON files arrive daily and directory listings dominate cost.
+4. A remote database remains the system of record and only current ad hoc reads are needed.
+5. A niche API returns cursor-based pages and HTTP 429 responses.
+
+If two methods could work, explain the requirement that makes one simpler or
+more reliable.
+
 ## 2.7 Semi-structured and unstructured data
 
 ### Nested JSON
 
-You can preserve structure as `STRUCT`, `ARRAY`, and `MAP`, or ingest flexible content into a `VARIANT` column.
+The exam-core approach is to preserve known structure with `STRUCT`, `ARRAY`,
+and `MAP`, use schema evolution or rescued data for drift, and type stable
+fields in silver.
+
+#### Preview enrichment: `VARIANT`
+
+As of July 2026, Databricks documents `VARIANT` as **Public Preview**. Treat it
+as useful enrichment whose availability and limitations must be verified for
+your cloud and runtime, not as the only way to answer a semi-structured-data
+question. A preview-capable environment can ingest the full flexible payload
+into a `VARIANT` column:
 
 ```sql
 CREATE TABLE main.bronze.api_events (
@@ -257,7 +459,9 @@ FILEFORMAT = JSON
 FORMAT_OPTIONS ('singleVariantColumn' = 'payload');
 ```
 
-`VARIANT` is useful when schema changes frequently and preserving the original structure matters. Extract frequently filtered fields into typed columns for clearer contracts and faster access.
+`VARIANT` is useful when schema changes frequently and preserving the original
+structure matters. Extract frequently filtered fields into typed columns for
+clearer contracts and faster access.
 
 ### Arrays and nested objects
 
@@ -278,6 +482,36 @@ For normal Spark arrays, use `explode` or `explode_outer`. The latter preserves 
 ### Unstructured files
 
 Auto Loader's `binaryFile` format can ingest file content and metadata such as path, modification time, length, and binary content. Managed file-source connectors can ingest enterprise documents from supported services. Store large files in governed volumes or object storage and keep searchable metadata in tables when that better fits the workload.
+
+### Bronze contracts for flexible data
+
+Preserving raw structure does not mean abandoning contracts. Record:
+
+- source path or message identifier;
+- ingestion timestamp and source event time;
+- source system and schema/version metadata;
+- rescued or parsing status;
+- checksum or content length when useful for replay;
+- access classification for sensitive documents or fields.
+
+In silver, extract fields whose meaning is stable, enforce types, explode only
+the arrays required by the consumer grain, and quarantine records that cannot
+meet the contract. Keep the bronze evidence so the repair is reproducible.
+
+### Nested-data grain check
+
+One order with five `items` becomes five item rows after `explode`. Any
+order-level amount repeated onto those rows can be counted five times by a
+careless aggregate. State the output grain before flattening:
+
+```text
+one row per order
+one row per order item
+one row per event attribute
+```
+
+Then select keys and measures that belong to that grain. Semi-structured
+questions often test row-count consequences as much as parsing syntax.
 
 ## Exam traps
 

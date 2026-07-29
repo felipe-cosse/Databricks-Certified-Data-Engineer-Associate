@@ -28,6 +28,7 @@ export function parseQuestions(markdown, defaultSection = null) {
       section: Number(meta.section || defaultSection),
       objective: meta.objective || "",
       answer: meta.answer || "",
+      source: meta.source || referenceMatch?.[1].trim() || "",
       question: questionMatch?.[1].trim() || "",
       options,
       rationale: rationaleMatch?.[1].trim() || "",
@@ -64,4 +65,3 @@ export function formatTime(totalSeconds) {
   const seconds = safe % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
-

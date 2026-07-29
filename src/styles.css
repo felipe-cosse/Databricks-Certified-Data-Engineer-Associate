@@ -686,6 +686,154 @@ a:focus-visible {
   text-underline-offset: 3px;
 }
 
+.term-tooltip {
+  position: relative;
+  border-bottom: 1px dotted #7e8da0;
+  cursor: help;
+  text-decoration: none;
+}
+
+.term-tooltip::before,
+.term-tooltip::after {
+  position: absolute;
+  left: 50%;
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.term-tooltip::before {
+  top: calc(100% + 3px);
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid #243a50;
+  border-left: 1px solid #243a50;
+  background: #f8fbfd;
+  content: "";
+  transform: translate(-50%, -4px) rotate(45deg);
+}
+
+.term-tooltip::after {
+  top: calc(100% + 8px);
+  width: min(280px, calc(100vw - 32px));
+  border: 1px solid #243a50;
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: #f8fbfd;
+  box-shadow: 0 8px 24px rgb(13 28 46 / 16%);
+  color: #18334e;
+  content: attr(data-definition);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-align: left;
+  text-transform: none;
+  transform: translate(-50%, -4px);
+  white-space: normal;
+}
+
+.term-tooltip:hover::before,
+.term-tooltip:hover::after,
+.term-tooltip:focus-visible::before,
+.term-tooltip:focus-visible::after,
+.choice:focus-visible .term-tooltip::before,
+.choice:focus-visible .term-tooltip::after {
+  opacity: 1;
+}
+
+.term-tooltip:hover::before,
+.term-tooltip:focus-visible::before,
+.choice:focus-visible .term-tooltip::before {
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.term-tooltip:hover::after,
+.term-tooltip:focus-visible::after,
+.choice:focus-visible .term-tooltip::after {
+  transform: translate(-50%, 0);
+}
+
+.course-sidebar .term-tooltip::before {
+  left: 12px;
+}
+
+.course-sidebar .term-tooltip::after {
+  left: 0;
+}
+
+.course-sidebar .term-tooltip::before {
+  transform: translate(0, -4px) rotate(45deg);
+}
+
+.course-sidebar .term-tooltip::after {
+  transform: translate(0, -4px);
+}
+
+.course-sidebar .term-tooltip:hover::before,
+.course-sidebar .term-tooltip:focus-visible::before {
+  transform: translate(0, 0) rotate(45deg);
+}
+
+.course-sidebar .term-tooltip:hover::after,
+.course-sidebar .term-tooltip:focus-visible::after {
+  transform: translate(0, 0);
+}
+
+.progress-rail .term-tooltip::before {
+  right: 12px;
+  left: auto;
+}
+
+.progress-rail .term-tooltip::after {
+  right: 0;
+  left: auto;
+}
+
+.progress-rail .term-tooltip::before {
+  transform: translate(0, -4px) rotate(45deg);
+}
+
+.progress-rail .term-tooltip::after {
+  transform: translate(0, -4px);
+}
+
+.progress-rail .term-tooltip:hover::before,
+.progress-rail .term-tooltip:focus-visible::before {
+  transform: translate(0, 0) rotate(45deg);
+}
+
+.progress-rail .term-tooltip:hover::after,
+.progress-rail .term-tooltip:focus-visible::after {
+  transform: translate(0, 0);
+}
+
+.reader-inner > h1 .term-tooltip::before {
+  display: none;
+}
+
+.reader-inner > h1 .term-tooltip::after {
+  position: fixed;
+  top: auto;
+  right: 344px;
+  bottom: 88px;
+  left: auto;
+  transform: translateY(4px);
+}
+
+.reader-inner > h1 .term-tooltip:hover::after,
+.reader-inner > h1 .term-tooltip:focus-visible::after {
+  transform: translateY(0);
+}
+
+.term-tooltip:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
 .markdown code,
 .trap-note code {
   border-radius: 4px;
@@ -1818,6 +1966,10 @@ td {
 }
 
 @media (max-width: 1120px) {
+  .reader-inner > h1 .term-tooltip::after {
+    right: 309px;
+  }
+
   .app-header {
     grid-template-columns: 260px 1fr 150px;
   }
@@ -1845,6 +1997,11 @@ td {
   :root {
     --header-height: 60px;
     --mobile-nav-height: 68px;
+  }
+
+  .reader-inner > h1 .term-tooltip::after {
+    right: 20px;
+    bottom: calc(var(--mobile-nav-height) + 20px);
   }
 
   body {
@@ -2176,6 +2333,33 @@ td {
 }
 
 @media (max-width: 540px) {
+  .term-tooltip::before {
+    display: none;
+  }
+
+  .term-tooltip::after,
+  .course-sidebar .term-tooltip::after,
+  .progress-rail .term-tooltip::after,
+  .reader-inner > h1 .term-tooltip::after {
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--mobile-nav-height) + 16px);
+    left: 16px;
+    top: auto;
+    width: auto;
+    transform: translateY(4px);
+  }
+
+  .term-tooltip:hover::after,
+  .term-tooltip:focus-visible::after,
+  .choice:focus-visible .term-tooltip::after,
+  .course-sidebar .term-tooltip:hover::after,
+  .course-sidebar .term-tooltip:focus-visible::after,
+  .progress-rail .term-tooltip:hover::after,
+  .progress-rail .term-tooltip:focus-visible::after {
+    transform: translateY(0);
+  }
+
   .brand strong {
     font-size: 13px;
   }

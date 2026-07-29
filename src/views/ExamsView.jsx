@@ -4,6 +4,7 @@ import { sections } from "../data/curriculum";
 import { formatTime, parseQuestions, scoreQuestions } from "../lib/parse";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Icon } from "../components/Icon";
+import { GlossaryText } from "../components/GlossaryText";
 
 const EXAM_SECONDS = 90 * 60;
 
@@ -55,14 +56,14 @@ function Results({ attempt, questions, onClose, onRetry }) {
         </aside>
         <section className="review-question">
           <header><span>Question {question.number}</span><small>Section {question.section} · Objective {question.objective}</small></header>
-          <h2>{question.question}</h2>
+          <h2><GlossaryText text={question.question} /></h2>
           <div className="choice-list">
             {Object.entries(question.options).map(([letter, label]) => (
               <div
                 key={letter}
                 className={`choice ${letter === question.answer ? "correct" : ""} ${selected === letter && letter !== question.answer ? "incorrect" : ""}`}
               >
-                <span className="choice-letter">{letter}</span><span>{label}</span>
+                <span className="choice-letter">{letter}</span><span><GlossaryText text={label} /></span>
                 {letter === question.answer && <Icon name="check" size={18} />}
               </div>
             ))}
@@ -73,7 +74,7 @@ function Results({ attempt, questions, onClose, onRetry }) {
                 ? "Your answer was correct"
                 : `${selected ? `You chose ${selected}` : "Unanswered"}; correct answer ${question.answer}`}
             </span>
-            <p>{question.rationale}</p>
+            <p><GlossaryText text={question.rationale} /></p>
           </div>
         </section>
       </div>
@@ -152,17 +153,18 @@ function ExamSession({ attempt, questions, setAttempt, onExit, onSubmit }) {
               <Icon name="flag" size={17} /> {attempt.flags[question.id] ? "Flagged" : "Flag"}
             </button>
           </header>
-          <h1>{question.question}</h1>
+          <h1><GlossaryText text={question.question} /></h1>
           <div className="choice-list" role="radiogroup">
             {Object.entries(question.options).map(([letter, label]) => (
               <button
                 key={letter}
                 role="radio"
                 aria-checked={attempt.answers[question.id] === letter}
+                aria-label={`${letter}. ${label}`}
                 className={`choice ${attempt.answers[question.id] === letter ? "selected" : ""}`}
                 onClick={() => select(letter)}
               >
-                <span className="choice-letter">{letter}</span><span>{label}</span>
+                <span className="choice-letter">{letter}</span><span><GlossaryText text={label} focusable={false} /></span>
               </button>
             ))}
           </div>
@@ -188,7 +190,7 @@ function ExamSession({ attempt, questions, setAttempt, onExit, onSubmit }) {
                   ? questions.findIndex((item) => item.section === section.id && !attempt.answers[item.id])
                   : questions.findIndex((item) => item.section === section.id) })}
               >
-                <span>S{section.id} · {section.shortTitle}</span><strong>{sectionAnswered}/{total}</strong>
+                <span>S{section.id} · <GlossaryText text={section.shortTitle} focusable={false} /></span><strong>{sectionAnswered}/{total}</strong>
               </button>
             ))}
           </div>

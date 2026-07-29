@@ -97,6 +97,31 @@ ALTER TABLE main.finance.transactions_external UNSET MANAGED;
 
 `UNSET MANAGED` is rollback for a recent `SET MANAGED` conversion, not a general command for turning any old managed table into an arbitrary external table. For other migrations, create the desired table and copy/clone data according to supported guidance.
 
+### Decide from lifecycle ownership
+
+Ask who should own the data files after table creation and after table drop:
+
+- If Unity Catalog should choose storage, maintain the files, and remove them with the table, choose managed.
+- If another platform or team must retain the path and files independently of Databricks metadata, choose external.
+
+“The data is in cloud storage” does not distinguish the types; both use cloud
+storage. The difference is lifecycle ownership and location management.
+
+### Safe lifecycle checklist
+
+Before dropping, converting, or replacing a table:
+
+1. Confirm managed versus external with `DESCRIBE DETAIL`.
+2. Identify the storage location and its owner.
+3. Check downstream dependencies and lineage.
+4. Verify retention, backup, and rollback requirements.
+5. Test conversion prerequisites on supported compute.
+6. Record who can still access underlying files directly.
+
+An external table drop removes catalog metadata but can leave cloud users able
+to read the path. Unity Catalog governance cannot protect access that bypasses
+Unity Catalog.
+
 ## 7.2 Principals and hierarchy
 
 Principals include:
@@ -164,6 +189,42 @@ The official objective lists `GRANT`, `REVOKE`, and `DENY`, making this scope di
 - `MANAGE` allows permission management, ownership transfer, and deletion but does not automatically grant data access.
 - `ALL PRIVILEGES` does not include `MANAGE`.
 
+### Compute effective access
+
+Evaluate access from every path:
+
+```text
+direct user grants
++ group membership grants
++ inherited catalog/schema grants
++ ownership or MANAGE capabilities
++ row/column policies
+= effective result
+```
+
+A direct `REVOKE SELECT` does not create a deny. If the user remains in a group
+with inherited `SELECT`, access can remain. Inspect effective permissions
+instead of reading one statement in isolation.
+
+### Least-privilege examples
+
+| Responsibility | Narrow grant design |
+|---|---|
+| Analysts read one schema | Group receives parent usage plus schema-level `SELECT` |
+| ETL service reads silver and writes gold | Service principal receives usage, narrow silver `SELECT`, and gold `MODIFY` |
+| Data steward manages grants but should not read rows | `MANAGE` without automatic `SELECT` |
+| Developer creates tables in a sandbox schema | Usage plus schema-scoped create privilege, not catalog ownership |
+
+Ownership is not a convenient substitute for missing privileges. It carries
+broad control and should be assigned deliberately.
+
+### Parent privilege reasoning
+
+To resolve `main.finance.transactions`, the principal must be able to traverse
+`main` and `finance` before table-level `SELECT` matters. If a question says
+the table grant exists but the query fails during name resolution, check
+`USE CATALOG` and `USE SCHEMA`.
+
 ## 7.3 Row filters and column masks
 
 These controls change what a query returns based on the querying user's identity.
@@ -212,6 +273,38 @@ The stored value is not rewritten. Authorized users receive the original value; 
 
 Keep policy UDFs simple and deterministic. Security evaluation can restrict optimizer choices, and complex UDFs can add query cost.
 
+### Trace the query result
+
+Row filters and masks execute when data is queried:
+
+1. Unity Catalog authorizes access to the object.
+2. The row-filter function evaluates which rows are visible.
+3. Column-mask functions transform protected values in those rows.
+4. The user receives the policy-shaped result.
+
+The stored table is unchanged. Removing a mask does not restore values because
+the values were never rewritten.
+
+### Choose among three fine-grained controls
+
+| Requirement | Best fit |
+|---|---|
+| One table hides rows by region | Direct row filter |
+| One table obscures account numbers | Direct column mask |
+| A secured interface joins tables and derives columns | Dynamic view |
+| The same PII rule follows tagged columns across many schemas | ABAC policy |
+
+A column mask changes a value; it does not remove an entire row. A row filter
+returns a Boolean for row visibility; it is not a substitute for protecting
+one sensitive field.
+
+### Policy-performance discipline
+
+Prefer simple SQL UDFs with minimal arguments. External calls, nondeterministic
+logic, or complex Python functions make policies harder to optimize, test, and
+audit. Test both an authorized and unauthorized identity and confirm row count,
+visible values, and query performance.
+
 ## 7.4 Attribute-based access control
 
 Unity Catalog ABAC uses:
@@ -256,6 +349,44 @@ Use ABAC when:
 - Classification attributes drive access consistently.
 
 Use a direct table filter or mask when the rule is intentionally table-specific and limited in scope.
+
+### ABAC operating model
+
+ABAC separates responsibilities:
+
+- Tag administrators define governed keys and allowed values.
+- Data stewards assign classification tags.
+- Policy authors define reusable row-filter or mask behavior.
+- Catalog/schema owners attach centralized policy scope.
+- Table owners manage their data without silently removing higher-level policy.
+
+This separation is valuable only when tag assignment is controlled. A free-form
+comment such as “contains PII” is not a governed attribute and should not drive
+automatic enforcement.
+
+### Policy rollout checklist
+
+1. Inventory columns and tables that should match.
+2. Define governed tag keys and allowed values.
+3. Test the policy function independently.
+4. Attach policy at the narrowest scope that still provides central coverage.
+5. Test included, excluded, and newly tagged objects.
+6. Monitor performance and audit policy changes.
+7. Define an emergency and rollback procedure.
+
+ABAC reduces repetitive attachment work, but a broadly scoped incorrect policy
+can also affect many objects. Controlled rollout matters.
+
+### Governance scenario walkthrough
+
+A new column `email` is added tomorrow:
+
+- With manually attached table masks, someone must notice and attach the mask.
+- With a catalog ABAC policy matching `classification=pii`, the column is
+  protected after an authorized steward applies the governed tag.
+
+The policy does not infer sensitivity by reading the column name; governed
+classification remains an explicit responsibility.
 
 ## Least-privilege decision process
 

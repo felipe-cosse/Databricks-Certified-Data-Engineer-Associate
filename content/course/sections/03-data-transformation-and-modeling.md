@@ -79,6 +79,35 @@ WHERE order_id IS NOT NULL;
 
 A reliable silver pipeline measures rejected, rescued, or quarantined rows. Silently filtering them without a metric makes data loss invisible.
 
+### Write the silver contract before the code
+
+For each output column, record:
+
+| Contract element | Example |
+|---|---|
+| Name and type | `amount DECIMAL(12,2)` |
+| Null rule | `order_id` must not be null |
+| Accepted values | `status` is one of `OPEN`, `PAID`, `CANCELLED` |
+| Grain | One row per `order_id` |
+| Freshness | Available within 15 minutes of bronze |
+| Failure response | Invalid amount goes to quarantine; missing key fails the update |
+
+This separates a transformation from a guess. `coalesce(country, "UNKNOWN")`
+is correct only if the business contract defines that category. Casting
+`amount` is incomplete unless invalid cast results are measured and handled.
+
+### Preserve evidence while improving quality
+
+A useful pattern produces three observable outputs:
+
+1. **Valid silver rows** that meet the contract.
+2. **Quarantine rows** with the raw value, source identifier, failed rule, and ingestion time.
+3. **Quality metrics** showing input, valid, rejected, and rescued counts.
+
+The counts should reconcile. If 10,000 bronze rows produce 9,970 silver rows
+and 20 quarantine rows, ten rows are unexplained. That reconciliation is often
+more valuable than a transformation that merely completes successfully.
+
 ## 3.2 Joins and set operations
 
 ### Join semantics
@@ -131,6 +160,36 @@ Use `UNION ALL` unless the requirement explicitly needs duplicate elimination.
 
 If A has 1 million rows and B has 1,000 rows, the cross join has 1 billion rows. Cross join is valid only when the Cartesian product is intended and bounded.
 
+### Trace row preservation with a tiny example
+
+Customers contain IDs 1 and 2. Orders contain customer IDs 1 and 3:
+
+| Operation | Result |
+|---|---|
+| Inner join | Only the order for customer 1 |
+| Left join from orders | Both orders; customer columns are null for ID 3 |
+| Left anti join from orders | Only the unmatched order for ID 3 |
+| Left semi join from orders | Only the order whose customer ID exists, without customer columns |
+
+Use this miniature trace when wording becomes confusing. Ask which input must
+be preserved and whether columns from the other side are required.
+
+### Logical result versus physical strategy
+
+“Left join” answers which rows survive. “Broadcast” answers how Spark moves
+data to execute that join. A broadcast hint does not turn a left join into an
+inner join, and increasing shuffle partitions does not correct the wrong join
+type.
+
+Choose in this order:
+
+1. Logical operation from the required rows and columns.
+2. Join keys from the business relationship.
+3. Physical strategy from size and runtime evidence.
+
+This order eliminates distractors that offer a fast implementation of the
+wrong result.
+
 ## 3.3 Shape columns and rows
 
 ### Common column operations
@@ -169,6 +228,40 @@ items = (
 ### Rename before ambiguous joins
 
 If both sides contain `name`, `status`, or `updated_at`, qualify or rename columns. An answer that uses unqualified duplicate names can create ambiguity even when the join keys are correct.
+
+### Shape operations can change cardinality
+
+Column operations such as rename, cast, split, and drop normally preserve row
+count. Filters reduce rows. `explode` can multiply rows. A cross join can
+multiply rows dramatically. Before and after each step, state:
+
+```text
+input grain → operation → output grain
+```
+
+For example:
+
+```text
+one row per order → explode(items) → one row per order item
+```
+
+If an order-level shipping charge remains on every item row, summing it after
+the explode overcounts. Keep order measures at order grain, allocate them by an
+explicit rule, or aggregate them before the row multiplication.
+
+### Prefer explicit projections
+
+After a join or nested transformation, select the intended columns explicitly.
+This prevents duplicate keys, debug fields, and raw sensitive values from
+leaking into silver or gold. It also makes the output contract readable:
+
+```python
+clean = joined.select(
+    F.col("o.order_id"),
+    F.col("o.order_ts"),
+    F.col("c.segment").alias("customer_segment"),
+)
+```
 
 ## 3.4 Deduplication and aggregation
 
@@ -227,6 +320,32 @@ summary = (
 
 Always confirm the grouping grain. A correct aggregate function at the wrong grain is still wrong.
 
+### Make “latest” deterministic
+
+Ordering only by `updated_at DESC` is ambiguous when two records share the same
+timestamp. Add a stable secondary rule such as ingestion time, source sequence,
+or version number. Document what happens when every ordering field ties.
+
+Do not confuse these requirements:
+
+- **Remove byte-for-byte duplicate rows:** `distinct`.
+- **Keep one arbitrary row per key:** `dropDuplicates(keys)`.
+- **Keep a specific winner per key:** window function with a complete ordering.
+- **Merge source changes into a target:** a keyed `MERGE` design, not generic deduplication alone.
+
+### Validate aggregates with invariants
+
+Useful checks include:
+
+- sum of grouped row counts equals the input row count when every row belongs to exactly one group;
+- `count(column)` is never greater than `count(*)`;
+- exact distinct count is not greater than total non-null rows;
+- aggregate grain columns form the declared business key;
+- totals before and after a join are compared when the join can duplicate facts.
+
+An aggregate can execute successfully and still be wrong because the join
+multiplied rows or the grouping omitted a dimension.
+
 ## 3.5 Tune and re-measure
 
 The objective names four areas:
@@ -266,6 +385,39 @@ Adding memory does not fix every bottleneck:
 
 Adaptive Query Execution can coalesce shuffle partitions and split some skewed partitions at runtime, but the exam still expects you to interpret the evidence.
 
+### Worked diagnosis sequence
+
+Suppose a stage has 400 tasks:
+
+- median duration: 8 seconds;
+- maximum duration: 7 minutes;
+- one partition reads 18 GB while the median reads 220 MB;
+- most tasks do not spill, but the straggler spills heavily.
+
+The primary evidence is skew, not simply “too few partitions.” Increasing the
+global partition count can leave the hot key concentrated in one partition.
+Investigate the key distribution, filter earlier, broadcast the safely small
+side, let AQE split skewed partitions where applicable, or salt the hot key
+when necessary.
+
+Now change the evidence: all 8 partitions are 9 GB and all spill similarly.
+That is broad per-task pressure. Increasing justified parallelism or reducing
+row width is more relevant than skew salting.
+
+### Compare like with like
+
+A valid before/after test holds constant:
+
+- input snapshot and volume;
+- code except for the tested change;
+- compute type and size;
+- cache state where practical;
+- success criteria and output row counts.
+
+Normalize duration by input volume when volume changed. A job that takes twice
+as long for three times the input may have improved throughput even though raw
+duration increased.
+
 ## 3.6 Choose the gold object
 
 | Object | Stores data? | Refresh/compute behavior | Best fit |
@@ -283,6 +435,32 @@ Adaptive Query Execution can coalesce shuffle partitions and split some skewed p
 - Continuously arriving events: streaming table.
 
 Gold design should match consumer grain and performance. “Gold” does not mean every object must be an aggregate; it means business-ready.
+
+### Ask four object-selection questions
+
+1. Must the result be physically stored?
+2. Should consumers see source changes immediately or only after a controlled refresh?
+3. Is the input bounded batch data or an unbounded stream?
+4. Is repeated query cost high enough to justify stored, maintained results?
+
+A standard view is attractive for current lightweight logic, but every query
+recomputes it. A materialized view trades storage and refresh work for faster
+repeated reads. A streaming table is not simply a faster table; it expresses
+incremental maintenance from streaming inputs.
+
+### Gold still needs a contract
+
+For a metric such as revenue, document:
+
+- business definition and exclusions;
+- grain and dimensions;
+- currency and time zone;
+- late-arriving-data policy;
+- refresh or streaming behavior;
+- owner and freshness expectation.
+
+Two technically correct SQL queries can produce different “revenue” because
+one includes refunds or uses order time while another uses settlement time.
 
 ## 3.7 Data quality
 
@@ -324,6 +502,36 @@ Choose the response from business impact:
 - Drop when invalid rows are expected and must not propagate.
 - Fail when any invalid row signals a critical contract breach.
 - Quarantine when you must keep invalid records for repair without mixing them into clean output.
+
+### Layer quality controls
+
+Use the control that owns the failure boundary:
+
+- Bronze preserves source evidence and ingestion metadata.
+- Silver applies type, key, domain, and deduplication rules.
+- Delta constraints protect a table from violating writes regardless of the calling notebook.
+- Pipeline expectations add row-level actions and metrics inside a Lakeflow pipeline.
+- Gold validates business rules and reconciles published measures.
+
+A notebook filter protects only the path that runs that notebook. A persistent
+table constraint protects every compatible writer. An expectation in a
+different pipeline does not govern writes it never evaluates.
+
+### Quality observability
+
+Track more than pass/fail:
+
+| Metric | What it reveals |
+|---|---|
+| Invalid rows by rule | Which contract is failing |
+| Invalid rate over time | Whether quality is deteriorating relative to volume |
+| Rescued-data rate | Upstream schema drift |
+| Quarantine age | Whether repair work is accumulating |
+| Reconciliation difference | Silent loss or duplication between layers |
+| Freshness | A technically valid dataset that arrived too late |
+
+Quality rules without metrics can silently discard data. Metrics without an
+owner and response threshold become decorative.
 
 ## Exam traps
 

@@ -136,10 +136,16 @@ You are ready to sit the exam when:
 - You finished each within 90 minutes.
 - Every miss and lucky guess has a repair entry.
 - No section is consistently below 70%.
+- You can explain why each tempting distractor is wrong, not merely recognize a memorized answer.
+- At least one unfamiliar transfer scenario per weak objective is correct after a delay.
 - The high-weight sections—Ingestion, Transform & Model, Jobs, Governance—are stable.
 - You rechecked the official exam guide two weeks before the exam.
 
-Do not treat a high score on memorized questions as calibrated readiness. Full objective coverage and hands-on confidence are stronger signals.
+The mocks are deliberately challenging practice, not psychometrically
+calibrated predictions. A score is evidence only when the question order and
+wording are unfamiliar and you can justify the decision boundary. Full
+objective coverage, delayed transfer, and hands-on confidence are stronger
+signals.
 
 ## Exam-day method
 
@@ -176,7 +182,7 @@ Flag when two answers remain plausible. Record the deciding phrase in the questi
 
 Review:
 
-- [Official exam guide](https://www.databricks.com/sites/default/files/2026-05/databricks-certified-data-engineer-associate-exam-guide-may-2026-000.pdf)
+- [Official exam guide — effective May 4, 2026](https://www.databricks.com/sites/default/files/2026-03/databricks-certified-data-engineer-associate-exam-guide-may-4-2026.pdf)
 - [Certification page](https://www.databricks.com/learn/certification/data-engineer-associate)
 - [Current renamed product table](renamed-products.md)
 - [Objective coverage map](objective-coverage.md)

@@ -286,10 +286,10 @@ Content corrections should include a current official Databricks source. Exam du
 ## Official sources
 
 - [Databricks Certified Data Engineer Associate](https://www.databricks.com/learn/certification/data-engineer-associate)
-- [Data Engineer Associate Exam Guide — May 2026](https://www.databricks.com/sites/default/files/2026-05/databricks-certified-data-engineer-associate-exam-guide-may-2026-000.pdf)
+- [Data Engineer Associate Exam Guide — effective May 4, 2026](https://www.databricks.com/sites/default/files/2026-03/databricks-certified-data-engineer-associate-exam-guide-may-4-2026.pdf)
 - [AI Prep Guide for Any Databricks Certification — June 2026](https://www.databricks.com/sites/default/files/2026-06/ai-prep-guide-any-databricks-certification.pdf)
 - [Databricks documentation](https://docs.databricks.com/)
-- [Databricks Academy](https://academy.databricks.com/)
+- [Databricks Customer Academy](https://customer-academy.databricks.com/learn)
 
 ## Trademark and content notice
 
